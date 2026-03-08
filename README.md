@@ -1,6 +1,6 @@
-# ISWE Meal Demo Platform
+# ISWE Runbot
 
-A comprehensive web-based platform for provisioning on-demand demo instances of ISWE Meal Addons modules on a Proxmox cluster. Built with Flask, Ansible, and Proxmox API.
+A comprehensive web-based platform for provisioning on-demand demo instances of odoo on a Proxmox cluster. Built with Flask, Ansible, and Proxmox API.
 
 > **Note**: This platform is designed to run on a dedicated application server. Nginx should be configured on a **separate web server** for production deployments. See [NGINX_SETUP.md](NGINX_SETUP.md) for detailed Nginx configuration instructions.
 
@@ -54,8 +54,7 @@ A comprehensive web-based platform for provisioning on-demand demo instances of 
 1. **Clone the repository**
 
 ```bash
-cd odoo-19.0.post20260108
-cd iswe_meal_demo_platform
+cd iswe_runbot
 ```
 
 2. **Create virtual environment**
