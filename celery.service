@@ -1,0 +1,16 @@
+[Unit]
+Description=Celery Worker for ISWE Meal Demo Platform
+After=network.target redis.service
+
+[Service]
+Type=forking
+User=demo
+Group=demo
+WorkingDirectory=/opt/iswe_meal_demo_platform
+Environment="PATH=/opt/iswe_meal_demo_platform/venv/bin"
+ExecStart=/opt/iswe_meal_demo_platform/venv/bin/celery -A tasks worker --loglevel=info --detach
+ExecStop=/opt/iswe_meal_demo_platform/venv/bin/celery -A tasks control shutdown
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

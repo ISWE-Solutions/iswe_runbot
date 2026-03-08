@@ -1,0 +1,16 @@
+[Unit]
+Description=Odoo Open Source ERP and CRM
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User={{ odoo_user }}
+Group={{ odoo_user }}
+ExecStart={{ repo_path }}/venv/bin/python {{ repo_path }}/odoo-bin -c /etc/odoo/odoo.conf
+WorkingDirectory={{ repo_path }}
+StandardOutput=journal+console
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.3
+requests==2.31.0
+proxmoxer==2.0.1
+ansible==9.1.0
+ansible-runner==2.3.4
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
+gunicorn==21.2.0
+celery==5.3.4
+redis==5.0.1

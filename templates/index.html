@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISWE Meal Demo Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 100px 0;
+        }
+        .feature-card {
+            transition: transform 0.3s;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-box-seam"></i> ISWE Meal Demo
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#features">Features</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#modules">Modules</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link btn btn-primary text-white ms-2" href="/login">Get Started</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-section text-center">
+        <div class="container">
+            <h1 class="display-3 fw-bold mb-4">Try ISWE Meal Addons</h1>
+            <p class="lead mb-5">Get instant access to a fully configured Odoo demo environment with ISWE Meal Management modules</p>
+            <a href="/login" class="btn btn-light btn-lg px-5">
+                <i class="bi bi-play-circle"></i> Launch Demo
+            </a>
+        </div>
+    </div>
+
+    <div class="container my-5" id="features">
+        <h2 class="text-center mb-5">Why Use Our Demo Platform?</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card feature-card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-lightning-charge text-primary" style="font-size: 3rem;"></i>
+                        <h5 class="card-title mt-3">Instant Provisioning</h5>
+                        <p class="card-text">Get a fully configured demo instance in minutes, not hours</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card feature-card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-shield-check text-success" style="font-size: 3rem;"></i>
+                        <h5 class="card-title mt-3">Isolated Environment</h5>
+                        <p class="card-text">Each demo runs in its own secure LXC container</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card feature-card h-100 shadow-sm">
+                    <div class="card-body text-center">
+                        <i class="bi bi-clock-history text-info" style="font-size: 3rem;"></i>
+                        <h5 class="card-title mt-3">Flexible Duration</h5>
+                        <p class="card-text">Choose demo duration from 1 hour to 7 days</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-light py-5" id="modules">
+        <div class="container">
+            <h2 class="text-center mb-5">Available Modules</h2>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-basket text-warning"></i> Meal Management
+                            </h5>
+                            <p class="card-text">Complete meal planning, distribution, and tracking system for institutional feeding programs</p>
+                            <ul>
+                                <li>Beneficiary management</li>
+                                <li>Meal distribution tracking</li>
+                                <li>Nutritional planning</li>
+                                <li>Inventory management</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-diagram-3 text-primary"></i> DHIS2 Connector
+                            </h5>
+                            <p class="card-text">Seamless integration with DHIS2 for health information system reporting</p>
+                            <ul>
+                                <li>Bi-directional data sync</li>
+                                <li>Automated reporting</li>
+                                <li>Data validation</li>
+                                <li>Real-time monitoring</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container my-5">
+        <div class="text-center">
+            <h2 class="mb-4">Ready to explore?</h2>
+            <p class="lead mb-4">Start your free demo instance now</p>
+            <a href="/login" class="btn btn-primary btn-lg px-5">
+                <i class="bi bi-rocket-takeoff"></i> Launch Demo
+            </a>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container text-center">
+            <p class="mb-0">&copy; 2026 ISWE Solutions. All rights reserved.</p>
+            <p class="mb-0 mt-2">
+                <a href="https://github.com/ISWE-Solutions/iswe_meal_addons" class="text-white">
+                    <i class="bi bi-github"></i> View on GitHub
+                </a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

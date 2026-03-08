@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - ISWE Meal Demo Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .status-badge {
+            font-size: 0.85rem;
+            padding: 0.35rem 0.65rem;
+        }
+        .instance-card {
+            transition: transform 0.2s;
+        }
+        .instance-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-box-seam"></i> ISWE Meal Demo
+            </a>
+            <div class="ms-auto">
+                <span class="text-white me-3">
+                    <i class="bi bi-person-circle"></i> {{ current_user.name }}
+                </span>
+                <a href="/logout" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <h2><i class="bi bi-speedometer2"></i> My Demo Instances</h2>
+                <p class="text-muted">Create and manage your Odoo demo environments</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
+                    <i class="bi bi-plus-circle"></i> New Instance
+                </button>
+            </div>
+        </div>
+
+        {% if instances %}
+        <div class="row g-4">
+            {% for instance in instances %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card instance-card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="card-title">{{ instance.instance_id }}</h5>
+                            <span class="badge status-badge
+                                {% if instance.status == 'running' %}bg-success
+                                {% elif instance.status == 'stopped' %}bg-secondary
+                                {% elif instance.status == 'provisioning' %}bg-warning
+                                {% else %}bg-danger{% endif %}">
+                                {{ instance.status }}
+                            </span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="bi bi-calendar-check"></i>
+                                Created: {{ instance.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            </small>
+                            <br>
+                            <small class="text-muted">
+                                <i class="bi bi-calendar-x"></i>
+                                Expires: {{ instance.expires_at.strftime('%Y-%m-%d %H:%M') }}
+                            </small>
+                        </div>
+
+                        {% if instance.url %}
+                        <div class="mb-3">
+                            <a href="{{ instance.url }}" target="_blank" class="btn btn-sm btn-outline-primary w-100">
+                                <i class="bi bi-box-arrow-up-right"></i> Open Odoo
+                            </a>
+                        </div>
+                        {% endif %}
+
+                        <div class="d-flex gap-2">
+                            {% if instance.status == 'running' %}
+                            <button class="btn btn-sm btn-warning flex-fill" onclick="stopInstance('{{ instance.instance_id }}')">
+                                <i class="bi bi-stop-circle"></i> Stop
+                            </button>
+                            {% elif instance.status == 'stopped' %}
+                            <button class="btn btn-sm btn-success flex-fill" onclick="startInstance('{{ instance.instance_id }}')">
+                                <i class="bi bi-play-circle"></i> Start
+                            </button>
+                            {% endif %}
+                            <button class="btn btn-sm btn-danger flex-fill" onclick="deleteInstance('{{ instance.instance_id }}')">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </div>
+
+                        {% if instance.status == 'running' and instance.admin_password %}
+                        <div class="mt-3 p-2 bg-light rounded">
+                            <small class="text-muted">Admin Password:</small>
+                            <br>
+                            <code>{{ instance.admin_password }}</code>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-info text-center">
+            <i class="bi bi-info-circle" style="font-size: 3rem;"></i>
+            <h4 class="mt-3">No instances yet</h4>
+            <p>Click "New Instance" to create your first demo environment</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Create Instance Modal -->
+    <div class="modal fade" id="createModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Demo Instance</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createForm">
+                        <div class="mb-3">
+                            <label class="form-label">Select Modules</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="meal" id="moduleMeal" checked>
+                                <label class="form-check-label" for="moduleMeal">
+                                    <strong>Meal Management</strong>
+                                    <br>
+                                    <small class="text-muted">Complete meal distribution system</small>
+                                </label>
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" value="dhis2_connector" id="moduleDHIS2" checked>
+                                <label class="form-check-label" for="moduleDHIS2">
+                                    <strong>DHIS2 Connector</strong>
+                                    <br>
+                                    <small class="text-muted">Integration with DHIS2 health information system</small>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="duration" class="form-label">Demo Duration (hours)</label>
+                            <select class="form-select" id="duration">
+                                <option value="1">1 hour</option>
+                                <option value="4">4 hours</option>
+                                <option value="8">8 hours</option>
+                                <option value="24" selected>24 hours (1 day)</option>
+                                <option value="48">48 hours (2 days)</option>
+                                <option value="168">7 days</option>
+                            </select>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <i class="bi bi-clock-history"></i>
+                            <small>Provisioning takes 5-10 minutes. You'll receive the instance details once ready.</small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="createInstance()">
+                        <i class="bi bi-rocket-takeoff"></i> Create Instance
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        async function createInstance() {
+            const modules = [];
+            if (document.getElementById('moduleMeal').checked) modules.push('meal');
+            if (document.getElementById('moduleDHIS2').checked) modules.push('dhis2_connector');
+            
+            const duration = document.getElementById('duration').value;
+            
+            if (modules.length === 0) {
+                alert('Please select at least one module');
+                return;
+            }
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('createModal'));
+            modal.hide();
+            
+            // Show loading
+            alert('Creating instance... This will take 5-10 minutes. Please wait.');
+            
+            try {
+                const response = await fetch('/api/create_instance', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ modules, duration })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Instance created successfully!');
+                    window.location.reload();
+                } else {
+                    alert('Error creating instance: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            }
+        }
+        
+        async function stopInstance(instanceId) {
+            if (!confirm('Stop this instance?')) return;
+            
+            try {
+                const response = await fetch(`/api/instance/${instanceId}/stop`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred.');
+            }
+        }
+        
+        async function startInstance(instanceId) {
+            try {
+                const response = await fetch(`/api/instance/${instanceId}/start`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred.');
+            }
+        }
+        
+        async function deleteInstance(instanceId) {
+            if (!confirm('Permanently delete this instance?')) return;
+            
+            try {
+                const response = await fetch(`/api/instance/${instanceId}/delete`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred.');
+            }
+        }
+    </script>
+</body>
+</html>
