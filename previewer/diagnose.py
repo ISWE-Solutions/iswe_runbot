@@ -192,6 +192,21 @@ def diagnose(log: str, mounts: dict[str, Source] | None = None,
             add(Finding("access_csv", "Invalid access rights file", detail or l, hint, module=module,
                         file=m.group(1).split("/", 1)[1] if "/" in m.group(1) else m.group(1)))
 
+    # A data file loads records of a model that is not in the registry (Odoo 20 wording:
+    # a bare KeyError: 'model.name' raised from convert_csv_import / convert_xml_import)
+    for i, l in enumerate(lines):
+        m = re.match(r"^KeyError: '([a-z_]+(?:\.[a-z_0-9]+)+)'$", l)
+        if not m or not any("convert_" in x for x in lines[max(0, i - 30): i]):
+            continue
+        loading = [x for x in lines[:i] if re.search(r"odoo\.modules\.loading: loading \S+\.(csv|xml)", x)]
+        rel = re.search(r"loading (\S+\.(?:csv|xml))", loading[-1]).group(1) if loading else None
+        module, file = (rel.split("/", 1) + [None])[:2] if rel else (None, None)
+        add(Finding("access_csv" if file and file.endswith("ir.model.access.csv") else "xml_data",
+                    "File loads records of an unknown model",
+                    f"{rel or 'A data file'} loads records of model {m.group(1)}, which is not available.",
+                    f"Add the module that defines {m.group(1)} to 'depends' in the manifest, or check "
+                    "the model name.", module=module, file=file))
+
     # Python: syntax, imports, packages, model definitions
     for i, l in enumerate(lines):
         m = re.match(r"^(SyntaxError|IndentationError|TabError): (.+)", l)
@@ -240,6 +255,13 @@ def diagnose(log: str, mounts: dict[str, Source] | None = None,
                         "A record broke a database rule (missing required value, duplicate, or a link to "
                         "a missing record); the error around it in the log says which record."))
 
+    loopback = re.search(r"HTTP service running on (127\.0\.0\.1|localhost):(\d+)", log)
+    if sig.health_failed and loopback:
+        add(Finding("health", "Odoo only listens inside its container",
+                    f"Odoo started but listens on {loopback.group(1)}:{loopback.group(2)}, so the "
+                    "proxy cannot reach it.",
+                    "Set http_interface = 0.0.0.0 in the Odoo configuration (Odoo 20 defaults to "
+                    "127.0.0.1); the previewer's own config does this."))
     if sig.health_failed and not found:
         add(Finding("health", "Preview did not start",
                     "Odoo installed, but the preview did not answer /web/login in time.",

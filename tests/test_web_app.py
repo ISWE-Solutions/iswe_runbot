@@ -421,3 +421,20 @@ def test_delete_odoo_version_refused_while_used(s, as_role):
     s.expire_all()
     assert s.get(OdooVersion, "18.0") is None
     assert as_role("developer").post("/admin/versions/19.0/delete").status_code == 403
+
+
+def test_version_demo_flags_must_match_odoo_style(s, as_role):
+    from previewer.models import OdooVersion
+    c = as_role("admin")
+    r = c.post("/admin/versions/19.0", data={"docker_image": "odoo:19", "demo_flag_on": "",
+                                             "demo_flag_off": "--without-demo=all", "enabled": "on"},
+               follow_redirects=True)
+    assert "needs --with-demo" in r.text
+    s.expire_all()
+    assert s.get(OdooVersion, "19.0").demo_flag_on == "--with-demo"
+    c.post("/admin/versions", data={"version": "21.0", "docker_image": "odoo:21"})
+    s.expire_all()
+    v = s.get(OdooVersion, "21.0")
+    assert (v.demo_flag_on, v.demo_flag_off) == ("--with-demo", "")
+    s.delete(v)
+    s.commit()

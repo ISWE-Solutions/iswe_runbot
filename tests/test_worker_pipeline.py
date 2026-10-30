@@ -315,3 +315,8 @@ def test_duplicate_modules_across_parts(tmp_path):
     assert found["other"] == ["a/bank_fork"]
     assert pipeline.duplicate_modules(found) == "Module bank_zm is provided by both a/bank_extension and a/bank_fork"
     assert pipeline.duplicate_modules({"a": ["x"]}) is None
+
+
+def test_preview_config_listens_on_all_interfaces():
+    conf = docker_ops.render_conf(db_name="d", admin_passwd="x", addons="/mnt/src")
+    assert "http_interface = 0.0.0.0" in conf  # Odoo 20 defaults to 127.0.0.1

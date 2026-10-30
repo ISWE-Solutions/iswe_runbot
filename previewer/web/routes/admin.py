@@ -46,11 +46,32 @@ def add_version(request: Request, version: str = Form(...), docker_image: str = 
     elif s.get(OdooVersion, version):
         flash(request, f"Odoo {version} already exists.", "error")
     else:
-        s.add(OdooVersion(version=version, docker_image=docker_image, demo_flag_on=demo_flag_on.strip(),
-                          demo_flag_off=demo_flag_off.strip(), enabled=True))
+        on, off = demo_flag_on.strip(), demo_flag_off.strip()
+        if not on and not off:  # blank: the style Odoo uses for that version
+            on, off = ("--with-demo", "") if int(version.split(".")[0]) >= 19 else ("", "--without-demo=all")
+        problem = demo_flags_error(version, on, off)
+        if problem:
+            flash(request, problem, "error")
+            return RedirectResponse("/admin/versions", status_code=303)
+        s.add(OdooVersion(version=version, docker_image=docker_image, demo_flag_on=on,
+                          demo_flag_off=off, enabled=True))
         s.commit()
         flash(request, f"Odoo {version} added. Pull its image before the first build.", "success")
     return RedirectResponse("/admin/versions", status_code=303)
+
+
+def demo_flags_error(version: str, on: str, off: str) -> str | None:
+    """Odoo 19+ loads demo data only with --with-demo; 18 and older load it unless told
+    --without-demo. Saving the other style silently breaks the demo choice of every build."""
+    try:
+        major = int(version.split(".")[0])
+    except ValueError:
+        return None
+    if major >= 19 and "--with-demo" not in on:
+        return f"Odoo {version} needs --with-demo under Demo on (it loads no demo data by default)."
+    if major <= 18 and "--without-demo" not in off:
+        return f"Odoo {version} needs --without-demo=all under Demo off (it loads demo data by default)."
+    return None
 
 
 @router.post("/versions/{version}")
@@ -60,6 +81,10 @@ def edit_version(version: str, request: Request, docker_image: str = Form(...),
     v = s.get(OdooVersion, version)
     if not v:
         raise HTTPException(404)
+    problem = demo_flags_error(version, demo_flag_on.strip(), demo_flag_off.strip())
+    if problem:
+        flash(request, problem, "error")
+        return RedirectResponse("/admin/versions", status_code=303)
     v.docker_image, v.demo_flag_on, v.demo_flag_off = docker_image.strip(), demo_flag_on.strip(), demo_flag_off.strip()
     v.enabled = enabled in ("on", "true", "1")
     s.commit()

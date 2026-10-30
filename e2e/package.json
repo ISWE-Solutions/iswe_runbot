@@ -1,0 +1,12 @@
+{
+  "name": "previewer-e2e",
+  "private": true,
+  "description": "End-to-end browser tests for the Odoo branch previewer (run against a live stack)",
+  "scripts": {
+    "test": "playwright test",
+    "test:write": "E2E_WRITE=1 playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0"
+  }
+}

@@ -85,6 +85,8 @@ def render_conf(*, db_name: str, admin_passwd: str, addons: str) -> str:
         "data_dir": DATA,
         "proxy_mode": "True",
         "workers": 0,
+        # Odoo 20 listens on 127.0.0.1 by default; previews must be reachable from Traefik/worker
+        "http_interface": "0.0.0.0",
     }
     if not addons:
         del opts["addons_path"]  # plain Odoo: only its own core (and Enterprise if set)

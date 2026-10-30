@@ -32,6 +32,7 @@ tests/             pytest, run inside the app container
 ```bash
 docker compose up -d --build                 # whole stack (dev override auto-loaded)
 docker compose exec app pytest -q            # tests (own throwaway DB, see tests/conftest.py)
+cd e2e && E2E_CHROME=<chromium> npx playwright test   # browser e2e vs the live stack (E2E_WRITE=1 creates/deletes)
 docker compose exec -e TEST_DATABASE=previewer_test_x app pytest   # parallel test runs
 docker compose restart worker                # worker has no auto-reload
 docker compose run --rm app alembic revision --autogenerate -m "..."

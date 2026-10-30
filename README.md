@@ -147,6 +147,15 @@ Storage lives under `DATA_DIR`:
 | `logs/<id>.log` | Build and runtime logs |
 | `logs/traefik/` | Traefik access log |
 
+## End-to-end tests
+
+Browser tests in [e2e/](e2e/README.md) run against a live stack; read-only by default.
+
+```bash
+cd e2e && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci
+E2E_CHROME=<path to chromium> npx playwright test      # E2E_WRITE=1 also creates and deletes a throwaway preview
+```
+
 ## Automation (worker scheduler)
 
 Shown with their last result on **System** (admin); every value below is editable there.

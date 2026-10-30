@@ -5,8 +5,8 @@
 {% block content %}
 <div class="mb-6 flex flex-wrap items-center gap-3">
   <h1 class="text-2xl font-semibold">Users</h1>
-  <form method="get" class="ml-auto flex gap-2">
-    <input name="q" value="{{ q }}" placeholder="Search email or name" class="{{ input }} w-52">
+  <form method="get" class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
+    <input name="q" value="{{ q }}" placeholder="Search email or name" class="{{ input }} min-w-0 flex-1 sm:w-52 sm:flex-none">
     <select name="role" class="{{ input }}" onchange="this.form.submit()">
       <option value="">All roles</option>
       {% for r in roles %}<option value="{{ r }}" {% if r == role %}selected{% endif %}>{{ r }}</option>{% endfor %}
