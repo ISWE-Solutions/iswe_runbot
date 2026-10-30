@@ -1,541 +1,182 @@
-# ISWE Runbot
+# Odoo Branch Previewer
 
-A comprehensive web-based platform for provisioning on-demand demo instances of odoo on a Proxmox cluster. Built with Flask, Ansible, and Proxmox API.
+A self-hosted, Runbot-style service: every branch of a registered GitHub repo runs as its own
+Odoo instance with its own web address, so developers and testers can open any branch in a
+browser and log in.
 
-> **Note**: This platform is designed to run on a dedicated application server. Nginx should be configured on a **separate web server** for production deployments. See [NGINX_SETUP.md](NGINX_SETUP.md) for detailed Nginx configuration instructions.
+- Dashboard: `https://preview.example.com/`
+- A preview: `https://payroll-v18.preview.example.com` (`<project>-<branch>.<domain>`)
+- Friendly link: `https://preview.example.com/18.0/payroll/v18` redirects to the preview
 
-## 🌟 Features
+The full specification is in [SPEC.md](SPEC.md). **Status:** Phase 1 and Phase 2 are done,
+plus the Phase 3 items Enterprise addons, extra addon repos, GitHub commit statuses and Slack
+alerts. Still open: anonymised client database templates, and a real server and domain.
 
-- **Instant Provisioning**: Create fully configured Odoo demo environments in minutes
-- **LXC Containers**: Lightweight, isolated demo instances using Proxmox LXC technology
-- **Automated Deployment**: Ansible playbooks handle complete setup from container creation to Odoo installation
-- **Web Portal**: User-friendly Flask interface for managing demo instances
-- **Multi-Module Support**: Select and deploy specific ISWE Meal Addons modules
-- **Lifecycle Management**: Start, stop, and delete instances on demand
-- **Auto-Cleanup**: Scheduled tasks automatically remove expired instances
-- **Proxmox Integration**: Direct integration with Proxmox API for cluster management
+## How it works
 
-## 📋 Architecture
-
-```
-┌─────────────────┐
-│  Flask Portal   │  ← User Interface
-│  (Web UI)       │
-└────────┬────────┘
-         │
-         ├──────────────────┬──────────────────┐
-         │                  │                  │
-┌────────▼────────┐ ┌──────▼──────┐  ┌────────▼────────┐
-│ Proxmox Manager │ │Ansible Runner│  │  PostgreSQL DB  │
-│  (API Client)   │ │  (Playbooks) │  │   (Instances)   │
-└────────┬────────┘ └──────┬──────┘  └─────────────────┘
-         │                  │
-         └──────────┬───────┘
-                    │
-         ┌──────────▼──────────┐
-         │   Proxmox Cluster   │
-         │  (LXC Containers)   │
-         └─────────────────────┘
+```text
+browser ──► Traefik ──► app (FastAPI dashboard)          ◄── reads DB + log files
+              │                     │ enqueues jobs
+              │                     ▼
+              │               Postgres 16  ◄── app DB + one DB per preview
+              │                     ▲
+              │                     │ claims jobs (FOR UPDATE SKIP LOCKED)
+              │               worker ──► Docker: odoo:<version> containers
+              └──────────────────────────► pv-<build-id> (one per running branch)
 ```
 
-## 🚀 Quick Start
+A build turns one commit into a running preview:
 
-### Prerequisites
+1. Fetch the repo into a bare mirror and export the commit. Extra addon repos and Odoo
+   Enterprise (for enterprise projects) are fetched the same way.
+2. Use `odoo:<version>`, or a small derived image if the repo has `requirements.txt`.
+3. Find the modules to install: the configured list, or every module in the repo.
+4. Create a fresh database with `odoo -i <modules> --stop-after-init` (20 minute limit), then
+   check that every module really installed.
+5. Start the preview container: 1.5 GB RAM, 1 CPU, a random master password, its own database
+   only, and the database manager disabled.
+6. Wait until `/web/login` answers. The build is then `running`.
+7. Swap: remove the branch's previous build, including its database and files.
 
-- Proxmox VE 7.0+ cluster
-- Python 3.10+
-- Redis (for background tasks)
-- PostgreSQL (recommended for production)
-- Ansible 2.9+
-- Ubuntu 22.04 LXC template on Proxmox
+If a build fails, it is marked `failed` with the last error lines, and the previous preview
+stays up.
 
-### Installation
+## Run it locally (macOS or Linux with Docker)
 
-1. **Clone the repository**
+Previews are served on `*.preview.localhost` over plain HTTP. Browsers and curl resolve
+`*.localhost` to your machine, so no DNS setup is needed. Port 80 must be free.
 
 ```bash
-cd iswe_runbot
+cp .env.example .env          # then fill in SECRET_KEY, ENCRYPTION_KEY, POSTGRES_PASSWORD,
+                              # ODOO_DB_PASSWORD, DATA_DIR=<absolute path>/data, DOMAIN=preview.localhost
+docker compose up -d --build  # also loads docker-compose.override.yml (live code reload)
+docker compose exec app python -m previewer.cli create-user --email you@example.com --role admin
 ```
 
-2. **Create virtual environment**
+Open <http://preview.localhost> and sign in.
+
+Pull the Odoo images once, or use **Odoo versions → Pull image** in the dashboard:
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+docker pull odoo:18 && docker pull odoo:19
 ```
 
-3. **Install dependencies**
+## Add a project
+
+**Projects → Add project**, then **Test connection**, **Save** and **Sync branches now**.
+
+| Field | Notes |
+| --- | --- |
+| Repo URL, access token | Fine-grained, read-only token (Contents + Metadata). Stored encrypted; never shown again. |
+| Default Odoo version | Each branch can override it from the dropdown on the project page. |
+| Edition | `enterprise` adds the Odoo Enterprise addons from `ENTERPRISE_REPO_URL` (branch = version). |
+| Module name | Only for repos whose root *is* a module (has `__manifest__.py`): its technical name, e.g. `payroll_zm`. Blank = repo name. |
+| Modules to install | Blank = every module in the repo. |
+| Branch include / exclude | Regular expressions, e.g. include `^v18$`. |
+| Extra addon repos | Other repos to put on the addons path (dependencies), as JSON. See the example below. |
+
+Example: the payroll module depends on the bank module, which lives in another repo whose
+branch names are not version numbers:
+
+```json
+[{"url": "https://github.com/ISWE-Solutions/bank_extension.git",
+  "module_name": "bank_zm",
+  "branches": {"18.0": "main", "19.0": "v19"}}]
+```
+
+A version without an entry in `branches` uses the branch named after the version (`18.0`).
+Extra repos are fetched with the project's token.
+
+Each preview's Odoo login is `admin` / `admin` (fresh database, sample data only).
+
+## Roles
+
+| Role | Can |
+| --- | --- |
+| Tester | View projects, open previews, wake, view logs |
+| Developer | Tester rights, plus rebuild, stop, change branch version and settings |
+| Admin | Everything: projects, Odoo versions, users, system settings |
+
+## Production install
+
+One Ubuntu 24.04 server (8 cores, 32 GB RAM, 300 GB SSD) with Docker.
+
+1. **DNS:** A records for `preview.<domain>` and `*.preview.<domain>` pointing to the server.
+2. **Firewall:** open only ports 22, 80 and 443.
+3. **Configure:** `cp .env.example .env` and set:
+   - `DOMAIN=preview.<domain>`
+   - `TLS_ENABLED=true`
+   - `ACME_EMAIL`, `DNS_PROVIDER` and `DNS_API_TOKEN`, used for the wildcard Let's Encrypt
+     certificate (DNS-01 challenge). Check that `docker-compose.prod.yml` maps your
+     provider's variable.
+   - `DATA_DIR=/srv/previewer`
+   - The secrets and `ADMIN_EMAIL`.
+4. **Install:** run `scripts/install.sh`. It creates the folders, builds and starts the stack,
+   runs the migrations, and asks for the first admin's password.
+
+To start the stack by hand with HTTPS:
 
 ```bash
-pip install -r requirements.txt
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-4. **Install Ansible collections**
+**Backups:** back up only the app database, nightly. Preview databases are disposable.
 
 ```bash
-ansible-galaxy collection install community.general
-ansible-galaxy collection install ansible.posix
+docker compose exec -T postgres pg_dump -U previewer previewer | gzip > previewer-$(date +%F).sql.gz
 ```
 
-5. **Configure environment**
-
-```bash
-cp .env.example .env
-nano .env  # Edit with your Proxmox credentials and settings
-```
-
-Required environment variables:
-```bash
-PROXMOX_HOST=https://your-proxmox.example.com:8006
-PROXMOX_USER=root@pam
-PROXMOX_PASSWORD=your_password
-PROXMOX_VERIFY_SSL=false
-
-SECRET_KEY=your_random_secret_key
-DATABASE_URL=postgresql://user:pass@localhost/iswe_meal_demo_platform
-```
-
-6. **Initialize database**
-
-```bash
-flask init-db
-```
-
-7. **Start Redis**
-
-```bash
-sudo systemctl start redis
-```
-
-8. **Run the application**
-
-Development mode:
-```bash
-python app.py
-```
-
-Production mode with Gunicorn:
-```bash
-gunicorn --workers 4 --bind 0.0.0.0:5000 app:app
-```
-
-9. **Start Celery workers** (in separate terminals)
-
-```bash
-celery -A tasks worker --loglevel=info
-celery -A tasks beat --loglevel=info
-```
-
-## 🎯 Usage
-
-### Creating a Demo Instance
-
-1. Navigate to `http://localhost:5000`
-2. Click "Get Started" and enter your details
-3. On the dashboard, click "New Instance"
-4. Select desired modules (Meal Management, DHIS2 Connector)
-5. Choose instance duration
-6. Click "Create Instance"
-
-The platform will:
-- Select an optimal Proxmox node
-- Create an LXC container
-- Install Ubuntu 22.04
-- Set up PostgreSQL
-- Clone and install Odoo 19
-- Deploy ISWE Meal Addons
-- Initialize selected modules
-- Provide access credentials
-
-### Managing Instances
-
-- **Start**: Boot up a stopped instance
-- **Stop**: Gracefully shutdown a running instance
-- **Delete**: Permanently remove an instance
-- **Access**: Click "Open Odoo" to access the demo
-
-### API Endpoints
-
-```bash
-# Create instance
-POST /api/create_instance
-{
-  "modules": ["meal", "dhis2_connector"],
-  "duration": 24
-}
-
-# Get instance status
-GET /api/instance/<instance_id>/status
-
-# Stop instance
-POST /api/instance/<instance_id>/stop
-
-# Start instance
-POST /api/instance/<instance_id>/start
-
-# Delete instance
-DELETE /api/instance/<instance_id>/delete
-
-# Platform statistics
-GET /api/stats
-```
-
-## 🔧 Configuration
-
-### Proxmox Setup
-
-1. **Create LXC template**
-
-Download Ubuntu 22.04 template on Proxmox:
-```bash
-pveam update
-pveam download local ubuntu-22.04-standard_22.04-1_amd64.tar.zst
-```
-
-2. **Configure network bridge**
-
-Ensure `vmbr0` is configured for container networking.
-
-3. **Set up storage**
-
-Configure `local-lvm` or your preferred storage backend.
-
-### Ansible Customization
-
-Edit [ansible/provision_demo.yml](ansible/provision_demo.yml) to customize:
-- Container resources (CPU, RAM, disk)
-- Odoo version
-- Module installation
-- Network configuration
-
-### Module Configuration
-
-Available modules:
-- `meal`: Meal Management System
-- `dhis2_connector`: DHIS2 Integration
-
-Add more modules by:
-1. Updating module list in `app.py`
-2. Ensuring modules exist in `iswe_meal_addons/`
-3. Adding module to Ansible playbook installation
-
-## 📦 Deployment
-
-### Production Deployment
-
-1. **Install system services**
-
-```bash
-sudo cp iswe_meal_demo_platform.service /etc/systemd/system/
-sudo cp celery.service /etc/systemd/system/
-sudo cp celery-beat.service /etc/systemd/system/
-
-sudo systemctl daemon-reload
-sudo systemctl enable iswe_meal_demo_platform celery celery-beat
-sudo systemctl start iswe_meal_demo_platform celery celery-beat
-```
-
-2. **Configure firewall on application server**
-
-Allow access from your Nginx server:
-
-```bash
-# Allow from specific Nginx server
-sudo ufw allow from NGINX_SERVER_IP to any port 5000
-
-# Or allow from a network range
-sudo ufw allow from 192.168.1.0/24 to any port 5000
-
-sudo ufw enable
-```
-
-3. **Configure Nginx on your separate web server**
-
-On your Nginx server, create a configuration file:
-
-```bash
-sudo nano /etc/nginx/sites-available/iswe_meal_demo
-```
-
-Add the following configuration (replace `YOUR_APP_SERVER_IP` with the actual IP):
-
-```nginx
-server {
-    listen 80;
-    server_name demo.example.com;
-
-    # Logging
-    access_log /var/log/nginx/iswe_meal_demo_access.log;
-    error_log /var/log/nginx/iswe_meal_demo_error.log;
-
-    # Proxy settings
-    location / {
-        proxy_pass http://YOUR_APP_SERVER_IP:5000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # Timeouts for long-running operations (container provisioning)
-        proxy_connect_timeout 600;
-        proxy_send_timeout 600;
-        proxy_read_timeout 600;
-        send_timeout 600;
-    }
-
-    # WebSocket support (if needed)
-    location /websocket {
-        proxy_pass http://YOUR_APP_SERVER_IP:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-
-    # Increase client max body size for file uploads
-    client_max_body_size 100M;
-}
-```
-
-Enable the site and test configuration:
-
-```bash
-sudo ln -s /etc/nginx/sites-available/iswe_meal_demo /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-4. **Configure SSL with Let's Encrypt (Recommended)**
-
-On your Nginx server:
-
-```bash
-# Install certbot
-sudo apt install certbot python3-certbot-nginx
-
-# Obtain and configure SSL certificate
-sudo certbot --nginx -d demo.example.com
-
-# Certificates will auto-renew via systemd timer
-sudo systemctl status certbot.timer
-```
-
-**Alternative: Manual SSL Configuration**
-
-If you already have SSL certificates:
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name demo.example.com;
-
-    ssl_certificate /path/to/fullchain.pem;
-    ssl_certificate_key /path/to/privkey.pem;
-    
-    # Modern SSL configuration
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-    
-    # Rest of configuration...
-}
-
-# Redirect HTTP to HTTPS
-server {
-    listen 80;
-    server_name demo.example.com;
-    return 301 https://$server_name$request_uri;
-}
-```
-
-### Database Migration
-
-For production, use PostgreSQL:
-
-```bash
-# Install PostgreSQL
-sudo apt install postgresql postgresql-contrib
-
-# Create database
-sudo -u postgres createdb iswe_meal_demo_platform
-sudo -u postgres createuser demo_user
-
-# Update .env
-DATABASE_URL=postgresql://demo_user:password@localhost/iswe_meal_demo_platform
-```
-
-## 🛠️ Maintenance
-
-### Cleanup Expired Instances
-
-Manual cleanup:
-```bash
-flask cleanup-expired
-```
-
-Automatic cleanup runs hourly via Celery Beat.
-
-### Monitor Instances
-
-```bash
-# Check container status on Proxmox
-pct list
-
-# View logs
-tail -f /var/log/odoo/odoo.log
-
-# Check Flask logs
-journalctl -u iswe_meal_demo_platform -f
-```
-
-### Backup
-
-Backup database:
-```bash
-pg_dump iswe_meal_demo_platform > backup.sql
-```
-
-Backup Proxmox containers:
-```bash
-vzdump <vmid> --storage local
-```
-
-## 📚 Project Structure
-
-```
-iswe_meal_demo_platform/
-├── app.py                    # Flask application
-├── proxmox_manager.py        # Proxmox API client
-├── ansible_runner.py         # Ansible execution wrapper
-├── tasks.py                  # Celery background tasks
-├── requirements.txt          # Python dependencies
-├── .env.example              # Environment template
-├── ansible/
-│   ├── provision_demo.yml    # Container provisioning playbook
-│   ├── deprovision_demo.yml  # Container cleanup playbook
-│   ├── ansible.cfg           # Ansible configuration
-│   └── templates/
-│       ├── odoo.conf.j2      # Odoo configuration template
-│       └── odoo.service.j2   # Systemd service template
-├── templates/
-│   ├── index.html            # Landing page
-│   ├── login.html            # Login/registration
-│   └── dashboard.html        # User dashboard
-├── *.service                 # Systemd service files
-└── README.md                 # This file
-```
-
-## 🔐 Security Considerations
-
-- Change default `SECRET_KEY` in production
-- Use strong Proxmox credentials
-- Enable SSL for Proxmox API
-- Implement rate limiting for API endpoints
-- Set up firewall rules for container network
-- Use PostgreSQL instead of SQLite in production
-- Enable HTTPS for Flask application
-- Implement user authentication/authorization
-- Regularly update Odoo and system packages
-
-## 🐛 Troubleshooting
-
-### Container creation fails
-
-Check Proxmox logs:
-```bash
-journalctl -u pvedaemon -f
-```
-
-Verify template exists:
-```bash
-pveam list local
-```
-
-### Ansible playbook timeout
-
-Increase timeout in `ansible_runner.py`:
-```python
-timeout=1200  # 20 minutes
-```
-
-### Database connection errors
-
-Check PostgreSQL status:
-```bash
-sudo systemctl status postgresql
-```
-
-Verify DATABASE_URL in `.env`
-
-### Container can't access internet
-
-Check Proxmox network configuration:
-```bash
-cat /etc/network/interfaces
-```
-
-Verify NAT/routing is configured correctly.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the same license as the ISWE Meal Addons modules.
-
-## 👥 Support
-
-For issues and questions:
-- GitHub Issues: https://github.com/ISWE-Solutions/iswe_meal_addons/issues
-- Documentation: See `doc/` directory
-
-## 🙏 Acknowledgments
-
-- Odoo Community
-- Proxmox VE Team
-- Ansible Community
-- ISWE Solutions Team
-
-## 📊 System Requirements
-
-### Server Requirements
-
-**Minimum:**
-- CPU: 4 cores
-- RAM: 8 GB
-- Storage: 100 GB SSD
-- Network: 100 Mbps
-
-**Recommended:**
-- CPU: 8+ cores
-- RAM: 16+ GB
-- Storage: 500 GB SSD
-- Network: 1 Gbps
-
-### Per Container Requirements
-
-- CPU: 2 cores
-- RAM: 4 GB
-- Disk: 20 GB
-- Network: Bridged to vmbr0
-
-## 🔄 Updates
-
-To update the platform:
-
-```bash
-cd iswe_meal_demo_platform
-git pull
-source venv/bin/activate
-pip install -r requirements.txt --upgrade
-flask db upgrade  # If using migrations
-sudo systemctl restart iswe_meal_demo_platform celery celery-beat
-```
-
----
-
-**Built with ❤️ for the ISWE Meal Addons Community**
+## Operations
+
+| Task | Command |
+| --- | --- |
+| Tests | `docker compose exec app pytest -q` |
+| Worker logs | `docker compose logs -f worker` |
+| Restart the worker after code changes | `docker compose restart worker` |
+| Health | `curl http://preview.localhost/health` (reports the database, queue and worker heartbeat) |
+| New migration | `docker compose run --rm app alembic revision --autogenerate -m "..."` |
+
+Storage lives under `DATA_DIR`:
+
+| Folder | Contents |
+| --- | --- |
+| `repos/` | Git mirrors |
+| `builds/<id>/` | Exported code and `odoo.conf` |
+| `filestore/<id>/` | Odoo data |
+| `checkouts/` | Shared Enterprise exports |
+| `logs/<id>.log` | Build and runtime logs |
+| `logs/traefik/` | Traefik access log |
+
+## Automation (worker scheduler)
+
+Shown with their last result on **System** (admin); every value below is editable there.
+
+| Task | When | What |
+|---|---|---|
+| poll | every 5 min | Sync every project (fallback for the GitHub webhook) |
+| visits | 30 s | Read Traefik's access log; record each preview's last visit |
+| sleep_idle | 1 min | Stop previews idle for 3 h (database kept); keep at most 25 running |
+| disk_guard | 30 s | Hold new builds while less than 5 GB is free |
+| cleanup_deleted / _stale / _builds | hourly / daily | Remove deleted branches after 24 h; stop branches with no commits or visits for 30 days (starred ones never), delete them after 60; drop failed logs after 14 days |
+| prune_enterprise / prune_images / prune_db_templates | daily / weekly / 6 h | Remove unused Enterprise copies, this system's unused images, old ready-made databases |
+| backup | daily | `pg_dump` of the app database to `DATA_DIR/backups/`, kept 14 days |
+
+- **Webhook:** each project's Settings tab shows the payload URL and secret (events: push, create,
+  delete). GitHub cannot reach `*.localhost`, so locally the poll does the work.
+- **Login on previews:** previews ask the dashboard first (Traefik forward-auth). A logged-in
+  user gets a separate *preview pass* cookie; the dashboard session itself never reaches a
+  preview. Turn **Previews require a dashboard login** off per project for client demos.
+- **Sleep and wake:** visiting a sleeping preview shows "Waking up…" and starts it (about 10 s).
+- **Speed:** builds copy a ready-made database (base, plus Enterprise core) for their version,
+  edition and demo setting, then install only the project's modules.
+- **Notifications:** turn on **Post build results to GitHub** per project (commit statuses on pull
+  requests); paste a Slack incoming-webhook URL on System for failure and "fixed" messages.
+- **Why it failed:** failed builds show the cause (XML, view, data, Python, dependency, memory…)
+  with the file and line linked on GitHub.
+
+## Known limits
+
+- Anonymised client database templates (Phase 3) are not built.
+- HTTPS, the wildcard certificate and webhooks from GitHub need the real server and domain.
+- Previews started before an upgrade keep their old settings (for example no login check) until
+  they are rebuilt.

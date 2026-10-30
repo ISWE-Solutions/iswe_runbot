@@ -1,0 +1,113 @@
+# Production-shaped stack. Local development adds docker-compose.override.yml
+# automatically; production adds docker-compose.prod.yml (HTTPS) explicitly.
+name: previewer
+
+x-app: &app
+  build: .
+  image: previewer-app:latest
+  env_file: .env
+  restart: unless-stopped
+  networks: [previewer]
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  traefik:
+    image: traefik:v3.6
+    restart: unless-stopped
+    command:
+      - --providers.docker.endpoint=tcp://socket-proxy:2375
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=previewer_net
+      - --entrypoints.web.address=:80
+      - --accesslog=true
+      - --accesslog.format=json
+      - --accesslog.filepath=/logs/access.log
+      - --ping=true
+    ports:
+      - "80:80"
+    volumes:
+      - type: bind
+        source: ${DATA_DIR:-/srv/previewer}/logs/traefik
+        target: /logs
+        bind: { create_host_path: true }
+    networks: [previewer]
+    depends_on: [socket-proxy]
+
+  # Read-only Docker API for Traefik; only the worker touches the real socket.
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      NETWORKS: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [previewer]
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    shm_size: 256mb
+    # Each Odoo install takes thousands of locks; with several builds at once the default
+    # (64 per transaction) runs out ("out of shared memory").
+    command: ["postgres", "-c", "max_locks_per_transaction=1024", "-c", "max_connections=300"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-previewer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-previewer}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-previewer}"]
+      interval: 5s
+      retries: 20
+    networks: [previewer]
+
+  app:
+    <<: *app
+    volumes:
+      - type: bind
+        source: ${DATA_DIR:-/srv/previewer}
+        target: ${DATA_DIR:-/srv/previewer}
+        bind: { create_host_path: true }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      retries: 30
+    labels:
+      traefik.enable: "true"
+      traefik.http.services.app.loadbalancer.server.port: "8000"
+      traefik.http.routers.dashboard.rule: Host(`${DOMAIN:-preview.localhost}`)
+      traefik.http.routers.dashboard.entrypoints: web
+      traefik.http.routers.dashboard.service: app
+      # Any preview host without a running container lands here (status / waking page).
+      traefik.http.routers.catchall.rule: HostRegexp(`.+`)
+      traefik.http.routers.catchall.priority: "1"
+      traefik.http.routers.catchall.entrypoints: web
+      traefik.http.routers.catchall.service: app
+      # Forward-auth for previews: /auth/forward answers 2xx (allowed) or redirects to login.
+      traefik.http.middlewares.previewer-auth.forwardauth.address: http://app:8000/auth/forward
+      traefik.http.middlewares.previewer-auth.forwardauth.trustForwardHeader: "true"
+
+  worker:
+    <<: *app
+    command: ["python", "-m", "previewer.worker"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - type: bind
+        source: ${DATA_DIR:-/srv/previewer}
+        target: ${DATA_DIR:-/srv/previewer}
+        bind: { create_host_path: true }
+    depends_on:
+      app:
+        condition: service_healthy
+
+networks:
+  previewer:
+    name: previewer_net
+
+volumes:
+  pgdata:

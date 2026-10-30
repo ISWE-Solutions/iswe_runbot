@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, pager, csrf, tabs with context %}
+{% from "_install_plan.html" import install_plan %}
+{% from "_why.html" import why_summary with context %}
+{% block title %}{{ branch.name }} · {{ project.name }}{% endblock %}
+{% set btn = "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50" %}
+{% block content %}
+{% set live = branch.live_build %}{% set latest = branch.latest_build %}
+<a href="/projects/{{ project.id }}" class="text-sm text-indigo-600 hover:underline">← {{ project.name }}</a>
+<div class="mt-1 flex flex-wrap items-center gap-3">
+  <h1 class="text-2xl font-semibold">{{ branch.name }}</h1>
+  {{ badge(latest.status if latest else 'none') }}
+  <span class="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700">Odoo {{ branch.effective_version }}{% if branch.odoo_version_override %} · override{% endif %}</span>
+  {% if live and live.odoo_version != branch.effective_version %}<span class="text-xs text-gray-600">running {{ live.odoo_version }}</span>{% endif %}
+  {% if not branch.auto_rebuild %}<span class="rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-800 ring-1 ring-amber-200" title="New commits are not built; Rebuild still works">⏸ auto-rebuild paused</span>{% endif %}
+</div>
+{% set nb = unbuilt_commit(branch) %}
+{% if nb %}<p class="mt-2 text-sm text-amber-800">New commit <code>{{ nb }}</code> is not built because auto-rebuild is paused. Press Rebuild to build it.</p>{% endif %}
+{% if branch.deleted_at %}<p class="mt-2 text-sm text-red-700">This branch was deleted on GitHub {{ branch.deleted_at|ago }}.</p>{% endif %}
+{% if branch.host_conflict %}<p class="mt-2 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">⚠ {{ branch.host_conflict }}</p>{% endif %}
+{% if not branch.enabled %}<p class="mt-2 text-sm text-gray-600">This branch is not selected for building. Select it on the project's <a class="text-indigo-600 hover:underline" href="/projects/{{ project.id }}?tab=branches&sel=all">Branches</a> tab.</p>{% endif %}
+{% set problems = blocked(branch) %}
+{% if problems %}<div class="mt-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"><span class="font-medium">Blocked:</span> <span class="whitespace-pre-line">{% for r in problems %}{{ r.message }}{% if not loop.last %}{{ '\n' if '\n' in r.message else '; ' }}{% endif %}{% endfor %}</span></div>{% endif %}
+{% set deps_used = dep_summary(branch) %}
+<div class="mt-5">
+{{ tabs([('overview', 'Overview'), ('builds', 'Builds', builds.total), ('plan', 'Install plan'),
+         ('deps', 'Dependencies', deps_used|length)], tab, '/branches/' ~ branch.id, 'Branch sections') }}
+</div>
+{% if tab == 'overview' %}
+<div class="grid gap-4 md:grid-cols-3">
+  <div class="min-w-0 rounded-lg border border-gray-200 bg-white p-5 md:col-span-2">
+    <h2 class="text-sm font-medium text-gray-500">Preview</h2>
+    {% if live and live.status == 'running' and branch.host %}
+      <a href="{{ settings.preview_url(branch.host) }}" target="_blank" rel="noopener" class="mt-2 inline-block rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">Open {{ branch.host }}</a>
+      <p class="mt-2 text-sm text-gray-600">Odoo login <code>admin</code> / <code>admin</code></p>
+    {% elif live %}
+      <p class="mt-2 text-sm text-gray-700">The preview is {{ live.status }}.</p>
+    {% else %}
+      <p class="mt-2 text-sm text-gray-700">No preview is running for this branch.</p>
+    {% endif %}
+    {% if branch.host %}{% set fp = friendly_path(branch) %}<p class="mt-2 text-sm">Friendly link: <a class="text-indigo-600 hover:underline" href="{{ fp }}">{{ fp }}</a></p>{% endif %}
+    {% if latest and latest.status == 'failed' %}
+      {{ why_summary(latest, 'Last build failed' ~ ((' (Odoo ' ~ latest.odoo_version ~ '); Odoo ' ~ live.odoo_version ~ ' build ' ~ live.short_sha ~ ' is still ' ~ live.status) if live else '')) }}
+    {% endif %}
+  </div>
+  <div class="rounded-lg border border-gray-200 bg-white p-5">
+    <h2 class="text-sm font-medium text-gray-500">Last commit</h2>
+    {% if branch.last_commit_sha %}
+      <p class="mt-2 text-sm"><code>{{ branch.last_commit_sha[:7] }}</code> {{ branch.last_commit_message or '' }}</p>
+      <p class="text-xs text-gray-500">{{ branch.last_commit_author or '' }}{% if branch.last_commit_at %} · {{ branch.last_commit_at|ago }}{% endif %}</p>
+    {% else %}<p class="mt-2 text-sm text-gray-500">Unknown — sync branches.</p>{% endif %}
+    <div class="mt-4 flex flex-wrap gap-2">
+      {% if can(user, 'developer') and not branch.deleted_at %}
+      {% if branch.enabled %}
+      <form method="post" action="/branches/{{ branch.id }}/rebuild">{{ csrf() }}<button class="{{ btn }}">Rebuild</button></form>
+      {% else %}
+      <form method="post" action="/branches/{{ branch.id }}/select">{{ csrf() }}<button class="{{ btn }}">Select and build</button></form>
+      {% endif %}
+      {% if live %}<form method="post" action="/branches/{{ branch.id }}/stop">{{ csrf() }}<button class="{{ btn }}">Stop</button></form>{% endif %}
+      <form method="post" action="/branches/{{ branch.id }}/auto-rebuild">{{ csrf() }}<button class="{{ btn }}" title="{{ 'New commits stop rebuilding this branch; the current preview stays' if branch.auto_rebuild else 'New commits rebuild this branch again' }}">{{ 'Pause auto-rebuild' if branch.auto_rebuild else 'Resume auto-rebuild' }}</button></form>
+      <a href="/branches/{{ branch.id }}/settings" class="{{ btn }}">Settings</a>
+      {% endif %}
+      {% if (not live and branch.builds|selectattr('status', 'in', ['sleeping', 'stopped'])|list) or (live and live.status == 'sleeping') %}
+      <form method="post" action="/branches/{{ branch.id }}/wake">{{ csrf() }}<button class="{{ btn }}">Wake</button></form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% elif tab == 'builds' %}
+{% include "_builds_table.html" %}
+{% elif tab == 'plan' %}
+{% set plan_build = branch.builds|selectattr('install_plan')|first %}
+<section>
+  <div class="mb-2 flex flex-wrap items-center gap-2">
+        <span class="text-xs text-gray-500">Modules: {{ modules_source(branch) }}</span>
+    <button type="button" class="ml-auto rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50"
+            hx-post="/branches/{{ branch.id }}/plan" hx-target="#live-plan" hx-swap="innerHTML" hx-indicator="#plan-spin">Preview plan</button>
+    <span id="plan-spin" class="htmx-indicator text-xs text-gray-500">Reading manifests…</span>
+  </div>
+  <div id="live-plan" class="mb-2"></div>
+  {% if plan_build %}{% set plan = plan_from_dict(plan_build.install_plan) %}
+    <p class="mb-1 text-xs text-gray-500">From build #{{ plan_build.id }} ({{ plan_build.status }}):</p>
+    {{ install_plan(plan, explain_plan(plan_build.install_plan, project.edition), grouped_install(plan)) }}
+  {% else %}<p class="text-sm text-gray-500">No build has recorded a plan yet. Use Preview plan to see what a build would install.</p>{% endif %}
+</section>
+
+{% elif tab == 'deps' %}
+<p class="mb-3 text-sm text-gray-600">What a build of this branch on Odoo {{ branch.effective_version }} fetches besides the branch itself. Change them on the project's <a class="text-indigo-600 hover:underline" href="/projects/{{ project.id }}?tab=deps">Dependencies</a> tab or in this branch's <a class="text-indigo-600 hover:underline" href="/branches/{{ branch.id }}/settings">settings</a>.</p>
+{% if deps_used %}
+<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="text-left"><tr><th class="px-4 py-2">Module / source</th><th class="px-4 py-2">Branch</th><th class="px-4 py-2">Chosen by</th></tr></thead>
+    <tbody class="divide-y divide-gray-100">
+    {% for d in deps_used %}
+    <tr><td class="px-4 py-2 font-mono text-xs">{% if d.repo_url %}<a class="text-indigo-600 hover:underline" href="{{ d.repo_url }}" target="_blank" rel="noopener">{{ d.name }}</a>{% else %}{{ d.name }}{% endif %}</td>
+      <td class="px-4 py-2 font-mono text-xs">{{ d.branch }}</td>
+      <td class="px-4 py-2 text-xs {{ 'text-amber-800' if d.source == 'branch' else 'text-gray-600' }}">{{ {'branch': 'this branch (override)', 'project': 'project mapping for ' ~ branch.effective_version, 'default': 'branch named after the version', 'enterprise': 'Odoo versions page', 'part': 'combined preview'}.get(d.source, d.source) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}<p class="text-sm text-gray-500">No dependencies: only the branch itself is installed.</p>{% endif %}
+{% endif %}
+{% endblock %}

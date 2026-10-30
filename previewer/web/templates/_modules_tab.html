@@ -1,0 +1,90 @@
+{% from "_macros.html" import csrf, pager, subtabs with context %}
+{% set btn = "rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50" %}
+<div class="mb-4 rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+  A build installs, in order: a branch's <strong>custom list</strong>, else the branch's <strong>module set</strong>, else the project's
+  <strong>default module set</strong>, else the project's modules list, else {{ 'just the base' if project.is_plain else ('every module of all parts' if project.is_combo else 'every module in the repo') }}.
+  Odoo installs each module's dependencies itself, so a set of the few <strong>top-level</strong> modules installs everything they need.
+  Before Odoo runs, every dependency is checked and anything missing is reported by name.
+</div>
+
+{% set mview = request.query_params.get('view', 'sets') %}
+{% set mbase = ('/combos/' if project.is_combo else '/projects/') ~ project.id ~ '?tab=modules' %}
+{{ subtabs([('sets', 'Module sets', project.module_sets|length), ('available', 'Available modules')], mview, mbase, 'view', 'Modules views') }}
+{% if mview == 'available' %}
+<section>
+  <div class="mb-3 flex flex-wrap items-center gap-2">
+    <h2 class="mr-2 text-base font-semibold">Available modules</h2>
+    {% if branch_choices|length > 1 %}
+    <select name="branch_id" aria-label="Branch to read modules from" class="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+            hx-get="/projects/{{ project.id }}/modules/available" hx-target="#modules-available" hx-swap="outerHTML" hx-indicator="#mods-spin">
+      {% for b in branch_choices %}<option value="{{ b.id }}" {% if default_branch and b.id == default_branch.id %}selected{% endif %}>{{ b.name }}{% if not b.enabled %} (not selected){% endif %}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <span id="mods-spin" class="htmx-indicator text-xs text-gray-500">Reading manifests from GitHub…</span>
+  </div>
+  <div id="modules-available" hx-get="/projects/{{ project.id }}/modules/available{% if default_branch %}?branch_id={{ default_branch.id }}{% endif %}" hx-trigger="load" hx-swap="outerHTML">
+    <p class="text-sm text-gray-500">Reading manifests from GitHub…</p>
+  </div>
+</section>
+{% else %}
+<section class="mb-6 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+  <div class="flex flex-wrap items-end gap-3">
+    <div class="min-w-0">
+      <h2 class="text-sm font-semibold">Project default</h2>
+      <p class="text-sm text-gray-600">Now: {{ project_default }}</p>
+    </div>
+    {% if can(user, 'developer') %}
+    <form method="post" action="/projects/{{ project.id }}/module-sets/default" class="ml-auto flex flex-wrap items-center gap-2">{{ csrf() }}
+      <select name="module_set_id" aria-label="Default module set" class="rounded-md border border-gray-300 px-3 py-1.5 text-sm">
+        <option value="">No set ({{ ('modules list: ' ~ project.modules_to_install) if project.modules_to_install else ('just the base' if project.is_plain else ('every module of all parts' if project.is_combo else 'every module in the repo')) }})</option>
+        {% for m in project.module_sets %}<option value="{{ m.id }}" {% if m.id == project.module_set_id %}selected{% endif %}>{{ m.name }}</option>{% endfor %}
+      </select>
+      <button class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Set default</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="mb-6">
+  <div class="mb-3 flex flex-wrap items-center gap-2">
+    <h2 class="mr-2 text-base font-semibold">Module sets</h2>
+    <form method="get" class="flex gap-1">
+      <input type="hidden" name="tab" value="modules">
+      <input type="search" name="mq" value="{{ mq }}" placeholder="Search module sets" aria-label="Search module sets" class="w-56 rounded-md border border-gray-300 px-3 py-1.5 text-sm">
+      <button class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Search</button>
+    </form>
+    {% if can(user, 'developer') %}
+    <a href="/projects/{{ project.id }}/module-sets/new" class="ml-auto rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add module set</a>
+    {% endif %}
+  </div>
+  <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+        <tr><th class="px-4 py-2">Name</th><th class="px-4 py-2">Modules</th><th class="px-4 py-2">Used by</th><th class="px-4 py-2 text-right">Actions</th></tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+      {% for m in sets_page.items %}
+        <tr class="align-top">
+          <td class="px-4 py-2"><span class="font-medium">{{ m.name }}</span>{% if m.id == project.module_set_id %} <span class="rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] text-indigo-700 ring-1 ring-indigo-200">default</span>{% endif %}
+            {% if m.description %}<p class="text-xs text-gray-500">{{ m.description }}</p>{% endif %}</td>
+          <td class="px-4 py-2"><div class="flex flex-wrap gap-1">{% for x in m.module_list %}<code class="rounded bg-gray-100 px-1.5 py-0.5 text-xs">{{ x }}</code>{% endfor %}</div></td>
+          <td class="px-4 py-2 text-xs text-gray-600">{{ set_users[m.id]|join(', ') or '—' }}</td>
+          <td class="px-4 py-2">
+            {% if can(user, 'developer') %}
+            <div class="flex flex-wrap justify-end gap-1">
+              <a href="/projects/{{ project.id }}/module-sets/{{ m.id }}/edit" class="{{ btn }}">Edit</a>
+              <form method="post" action="/projects/{{ project.id }}/module-sets/{{ m.id }}/delete" onsubmit="return confirm('Delete module set {{ m.name|e }}?{% if set_users[m.id] %} It is used by {{ set_users[m.id]|join(', ') }}.{% endif %}')">{{ csrf() }}
+                <button class="{{ btn }} text-red-700">Delete</button></form>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="px-4 py-4 text-gray-500">No module sets yet. {% if can(user, 'developer') %}Create one from the top-level modules on the <b>Available modules</b> view, or add your own.{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ pager(sets_page) }}
+</section>
+{% endif %}

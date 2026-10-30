@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, pager with context %}
+{% block title %}Git credentials{% endblock %}
+{% set btn = "rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50" %}
+{% block content %}
+<div class="mb-2 flex flex-wrap items-center gap-3">
+  <h1 class="text-2xl font-semibold">Git credentials</h1>
+  <form method="get" class="ml-auto flex gap-1">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search name or username" aria-label="Search accounts" class="w-52 rounded-md border border-gray-300 px-3 py-1.5 text-sm">
+    <button class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Search</button>
+  </form>
+  {% if can(user, 'admin') %}<a href="/admin/github-accounts/new" class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add credential</a>{% endif %}
+</div>
+<p class="mb-6 max-w-3xl text-sm text-gray-600">
+  The accounts the system pulls code with. Projects and Odoo Enterprise sources use the <strong>default</strong> account unless they name another;
+  dependencies use their project's account unless they name another. Use a fine-grained, read-only token (Contents + Metadata) for the repositories it needs.
+  For Odoo Enterprise, the account must have access to the Enterprise repository (for example <code>odoo/enterprise</code> for an Odoo partner).
+</p>
+<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+      <tr><th class="px-4 py-3">Credential</th><th class="px-4 py-3">Last test</th><th class="px-4 py-3">Used by</th><th class="px-4 py-3 text-right">Actions</th></tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+    {% for c in page.items %}{% set u = usage[c.id] %}
+      <tr class="align-top">
+        <td class="px-4 py-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-medium">{{ c.name }}</span>
+            {% if c.is_default %}<span class="rounded bg-indigo-50 px-1.5 py-0.5 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200">default</span>{% endif %}
+          </div>
+          <div class="text-xs text-gray-500">{{ c.username or 'no username set' }}</div>
+        </td>
+        <td class="px-4 py-3 text-xs">
+          {% if c.check_error %}<span class="text-red-700">✗ {{ c.check_error }}</span>
+          {% elif c.checked_login %}<span class="text-green-700">✓ authenticated as {{ c.checked_login }}</span>
+            {% if c.username and c.username|lower != c.checked_login|lower %}<div class="text-amber-700">username {{ c.username }} does not match</div>{% endif %}
+          {% else %}<span class="text-gray-400">not tested yet</span>{% endif %}
+          {% if c.checked_at %}<div class="text-gray-400">{{ c.checked_at|ago }}</div>{% endif %}
+          <div id="test-{{ c.id }}" class="mt-1"></div>
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-600">
+          {% set parts = [] %}
+          {% if u.via_default %}{% set _ = parts.append(u.via_default ~ ' project(s) via Default') %}{% endif %}
+          {% if u.projects %}{% set _ = parts.append(u.projects|length ~ ' project(s)') %}{% endif %}
+          {% if u.dependencies %}{% set _ = parts.append(u.dependencies|length ~ ' dependenc' ~ ('y' if u.dependencies|length == 1 else 'ies')) %}{% endif %}
+          {% if u.versions %}{% set _ = parts.append('Enterprise ' ~ (u.versions|map(attribute='version')|join(', '))) %}{% endif %}
+          {% if c.is_default %}{% set _ = parts.append('Enterprise sources set to Default') %}{% endif %}
+          {{ parts|join(' · ') if parts else 'not used' }}
+        </td>
+        <td class="px-4 py-3">
+          {% if can(user, 'admin') %}
+          <form class="flex flex-wrap justify-end gap-1" hx-post="/admin/github-accounts/{{ c.id }}/test" hx-target="#test-{{ c.id }}" hx-indicator="#spin-{{ c.id }}">
+            <input name="repo_url" placeholder="optional: repo to check, e.g. odoo/enterprise" aria-label="Repository to check with {{ c.name }}"
+                   class="w-64 rounded border border-gray-300 px-2 py-1 text-xs">
+            <button class="{{ btn }}">Test</button>
+            <span id="spin-{{ c.id }}" class="htmx-indicator text-xs text-gray-500">…</span>
+          </form>
+          <div class="mt-1 flex flex-wrap justify-end gap-1">
+            <a href="/admin/github-accounts/{{ c.id }}/edit" class="{{ btn }}">Edit</a>
+            {% if not c.is_default %}
+            <form method="post" action="/admin/github-accounts/{{ c.id }}/default">{{ csrf() }}<button class="{{ btn }}">Make default</button></form>
+            <form method="post" action="/admin/github-accounts/{{ c.id }}/delete" onsubmit="return confirm('Delete this Git credential?')">{{ csrf() }}<button class="{{ btn }} text-red-700">Delete</button></form>
+            {% endif %}
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500">{% if q %}No accounts match.{% else %}No Git credentials yet: only public repositories can be pulled. Add one and it becomes the default.{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pager(page, '/admin/github-accounts') }}
+{% endblock %}

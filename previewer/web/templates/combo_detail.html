@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, csrf, pager, tabs with context %}
+{% from "_install_plan.html" import install_plan %}
+{% from "_why.html" import why_summary with context %}
+{% block title %}{{ project.name }} · {{ 'plain Odoo' if project.is_plain else 'combined preview' }}{% endblock %}
+{% set btn = "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50" %}
+{% block content %}
+{% set live = branch.live_build %}{% set latest = branch.latest_build %}
+<div class="mb-4 flex flex-wrap items-start gap-3">
+  <div class="min-w-0">
+    <a href="/projects" class="text-sm text-indigo-600 hover:underline">← Projects</a>
+    <div class="mt-1 flex flex-wrap items-center gap-2">
+      <h1 class="text-2xl font-semibold">{{ project.name }}</h1>
+      {% if project.is_plain %}
+      <span class="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">Plain Odoo · no custom code</span>
+      {% else %}
+      <span class="rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-200">combined</span>
+      {% endif %}
+      {{ badge(latest.status if latest else 'none') }}
+      {% if not branch.auto_rebuild %}<span class="rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-800 ring-1 ring-amber-200" title="Changes to the parts' branches are not built; Rebuild still works">⏸ auto-rebuild paused</span>{% endif %}
+    </div>
+    {% if project.is_plain %}
+    <p class="text-sm text-gray-500">{{ plain_describe(project) }}</p>
+    {% else %}
+    <p class="text-sm text-gray-500">Odoo {{ project.default_odoo_version }} · {{ project.edition }} · {{ project.dependencies|length }} part{{ 's' if project.dependencies|length != 1 }}</p>
+    {% endif %}
+  </div>
+  <div class="ml-auto flex flex-wrap gap-2">
+    <a href="/?project=combined" class="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm hover:bg-gray-50">Board</a>
+    {% if can(user, 'developer') and not project.is_plain %}
+    <form method="post" action="/combos/{{ project.id }}/refresh">{{ csrf() }}
+      <button class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700" title="Check the parts' branches for new commits">Refresh parts</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% set dev = can(user, 'developer') %}
+{% set combo_tabs = [('preview', 'Preview'), ('builds', 'Builds', builds.total if builds is defined else none), ('plan', 'Install plan')]
+   + ([('parts', 'Parts', project.dependencies|length)] if dev and not project.is_plain else [])
+   + [('modules', 'Modules')] + ([('settings', 'Settings')] if dev else []) %}
+{{ tabs(combo_tabs, tab, '/combos/' ~ project.id, 'Combined preview sections') }}
+
+{% if tab == 'preview' %}
+{% set problems = blocked(branch) %}
+{% if problems %}
+<div class="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+  <span class="font-medium">Blocked:</span> <span class="whitespace-pre-line">{% for r in problems %}{{ r.message }}{% if not loop.last %}{{ '\n' if '\n' in r.message else '; ' }}{% endif %}{% endfor %}</span>
+  {% if can(user, 'developer') %}
+  <span class="mt-2 flex flex-wrap gap-2">
+    <form method="post" action="/branches/{{ branch.id }}/select">{{ csrf() }}<button class="{{ btn }}">Check again</button></form>
+    <form method="post" action="/branches/{{ branch.id }}/build-anyway" onsubmit="return confirm('Build this combined preview even though the check failed?')">{{ csrf() }}<button class="{{ btn }}">Build anyway</button></form>
+  </span>
+  {% endif %}
+</div>
+{% endif %}
+{% set nb = unbuilt_commit(branch) %}
+{% if nb %}<p class="mb-3 text-sm text-amber-800">A part has new commits that are not built because auto-rebuild is paused. Press Rebuild to build them.</p>{% endif %}
+{% if branch.host_conflict %}<p class="mb-3 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">⚠ {{ branch.host_conflict }}</p>{% endif %}
+
+<div class="grid gap-4 md:grid-cols-3">
+  <div class="min-w-0 rounded-lg border border-gray-200 bg-white p-5 md:col-span-2">
+    <h2 class="text-sm font-medium text-gray-500">Preview</h2>
+    {% if live and live.status == 'running' and branch.host %}
+      <a href="{{ settings.preview_url(branch.host) }}" target="_blank" rel="noopener" class="mt-2 inline-block rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">Open {{ branch.host }}</a>
+      <p class="mt-2 text-sm text-gray-600">Odoo login <code>admin</code> / <code>admin</code></p>
+    {% elif live %}<p class="mt-2 text-sm text-gray-700">The preview is {{ live.status }}.</p>
+    {% elif latest and latest.status in ('queued', 'building') %}<p class="mt-2 text-sm text-gray-700">Building… this page shows the result when it is done (<a class="text-indigo-600 hover:underline" href="/builds/{{ latest.id }}">live log</a>).</p>
+    {% else %}<p class="mt-2 text-sm text-gray-700">No preview is running.</p>{% endif %}
+    {% if branch.host %}{% set fp = friendly_path(branch) %}<p class="mt-2 text-sm">Friendly link: <a class="text-indigo-600 hover:underline" href="{{ fp }}">{{ fp }}</a></p>{% endif %}
+    {% if latest and latest.status == 'failed' %}
+      {{ why_summary(latest, 'Last build failed' ~ (('; build #' ~ live.id ~ ' is still ' ~ live.status) if live else '')) }}
+    {% endif %}
+    {% if project.is_plain %}
+    <h3 class="mt-5 text-sm font-medium text-gray-500">What it runs</h3>
+    <p class="mt-1 text-sm text-gray-700">{{ plain_describe(project) }}. No custom code: only Odoo{% if project.edition == 'enterprise' %} and its Enterprise addons{% endif %}.</p>
+    {% else %}
+    <h3 class="mt-5 text-sm font-medium text-gray-500">Parts</h3>
+    <div class="mt-2 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="text-left text-xs uppercase tracking-wide text-gray-500"><tr><th class="py-1 pr-4">Module</th><th class="py-1 pr-4">Repository</th><th class="py-1 pr-4">Branch</th><th class="py-1">Built at</th></tr></thead>
+        <tbody class="divide-y divide-gray-100">
+        {% for d in parts_list %}
+          {% set ref = built.get(d.name) %}
+          <tr>
+            <td class="py-1.5 pr-4 font-mono">{{ d.name }}</td>
+            <td class="py-1.5 pr-4 text-gray-600">{% if d.repo_url %}{% set gh = github_base(d.repo_url) %}{% if gh %}<a href="{{ gh }}/tree/{{ d.branch }}" target="_blank" rel="noopener" class="hover:underline">{{ gh.removeprefix('https://github.com/') }}</a>{% else %}{{ d.repo_url }}{% endif %}{% else %}Odoo Enterprise source{% endif %}</td>
+            <td class="py-1.5 pr-4 font-mono">{{ d.branch }}</td>
+            <td class="py-1.5 font-mono text-gray-600">{% if ref and ref.sha %}{% if ref.branch != d.branch %}<span class="text-amber-700" title="Built from {{ ref.branch }}; the part now points at {{ d.branch }}">{{ ref.branch }} </span>{% endif %}{{ ref.sha[:7] }}{% elif d.source == 'enterprise' %}—{% else %}not built{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+  <div class="rounded-lg border border-gray-200 bg-white p-5">
+    <h2 class="text-sm font-medium text-gray-500">Actions</h2>
+    <div class="mt-3 flex flex-wrap gap-2">
+      {% if can(user, 'developer') %}
+      <form method="post" action="/branches/{{ branch.id }}/rebuild">{{ csrf() }}<button class="{{ btn }}">Rebuild</button></form>
+      {% if live %}<form method="post" action="/branches/{{ branch.id }}/stop">{{ csrf() }}<button class="{{ btn }}">Stop</button></form>{% endif %}
+      {% if not project.is_plain %}<form method="post" action="/branches/{{ branch.id }}/auto-rebuild">{{ csrf() }}<button class="{{ btn }}" title="{{ 'Stop rebuilding when a part gets new commits' if branch.auto_rebuild else 'Rebuild again when a part gets new commits' }}">{{ 'Pause auto-rebuild' if branch.auto_rebuild else 'Resume auto-rebuild' }}</button></form>{% endif %}
+      {% endif %}
+      {% if (not live and branch.builds|selectattr('status', 'in', ['sleeping', 'stopped'])|list) or (live and live.status == 'sleeping') %}
+      <form method="post" action="/branches/{{ branch.id }}/wake">{{ csrf() }}<button class="{{ btn }}">Wake</button></form>
+      {% endif %}
+      <button type="button" class="{{ btn }}" hx-post="/branches/{{ branch.id }}/check" hx-target="#check-{{ branch.id }}" hx-swap="outerHTML">Check</button>
+    </div>
+    <div id="check-{{ branch.id }}"></div>
+  </div>
+</div>
+
+
+{% elif tab == 'builds' %}
+{% include "_builds_table.html" %}
+
+{% elif tab == 'plan' %}
+{% set plan_build = branch.builds|selectattr('install_plan')|first %}
+<section>
+  <div class="mb-2 flex flex-wrap items-center gap-2">
+        <span class="text-xs text-gray-500">Modules: {{ modules_source(branch) }}</span>
+    <button type="button" class="ml-auto rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50"
+            hx-post="/branches/{{ branch.id }}/plan" hx-target="#live-plan" hx-swap="innerHTML" hx-indicator="#plan-spin">Preview plan</button>
+    <span id="plan-spin" class="htmx-indicator text-xs text-gray-500">Reading manifests…</span>
+  </div>
+  <div id="live-plan" class="mb-2"></div>
+  {% if plan_build %}{% set plan = plan_from_dict(plan_build.install_plan) %}
+    <p class="mb-1 text-xs text-gray-500">From build #{{ plan_build.id }} ({{ plan_build.status }}):</p>
+    {{ install_plan(plan, explain_plan(plan_build.install_plan, project.edition), grouped_install(plan)) }}
+  {% else %}<p class="text-sm text-gray-500">No build has recorded a plan yet. Use Preview plan to see what a build would install.</p>{% endif %}
+</section>
+
+
+{% elif tab == 'modules' %}
+{% include "_modules_tab.html" %}
+
+{% elif tab == 'parts' %}
+<form method="post" action="/combos/{{ project.id }}/parts" class="space-y-5 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+  {{ csrf() }}
+  {% include "_combo_parts.html" %}
+  <div class="flex items-center gap-3 border-t border-gray-100 pt-4">
+    <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save parts</button>
+    <span class="text-xs text-gray-500">Saving checks every branch on GitHub, then rebuilds the preview{% if not branch.auto_rebuild %} when you press Rebuild (auto-rebuild is paused){% endif %}.</span>
+  </div>
+</form>
+
+{% else %}
+<form method="post" action="/combos/{{ project.id }}/settings" class="space-y-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+  {{ csrf() }}
+  {% if project.is_plain %}{% include "_plain_fields.html" %}{% else %}{% include "_combo_fields.html" %}{% endif %}
+  <label class="block text-sm font-medium">Module set <span class="font-normal text-gray-500">(wins over the modules list)</span>
+    <select name="module_set_id" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+      <option value="">{{ 'None: use the apps chosen above, or just the base' if project.is_plain else 'None: use the modules list above, or every module of every part' }}</option>
+      {% for m in project.module_sets %}<option value="{{ m.id }}" {% if m.id == project.module_set_id %}selected{% endif %}>{{ m.name }} ({{ m.modules }})</option>{% endfor %}
+    </select>
+    <a href="/combos/{{ project.id }}?tab=modules" class="mt-1 inline-block text-xs text-indigo-600 hover:underline">Manage module sets</a>
+  </label>
+  <div class="flex items-center gap-3 border-t border-gray-100 pt-4">
+    <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
+    <span class="text-xs text-gray-500">Changing the version, edition, modules or demo data rebuilds on a fresh database.</span>
+  </div>
+</form>
+{% include "_project_access.html" %}
+<form method="post" action="/combos/{{ project.id }}/delete" class="mt-6 rounded-lg border border-red-200 bg-white p-6">
+  {{ csrf() }}
+  <h2 class="font-semibold text-red-700">Delete {{ 'plain Odoo preview' if project.is_plain else 'combined preview' }}</h2>
+  <p class="mt-1 text-sm text-gray-600">Removes its preview, builds, database, filestore and logs.{% if not project.is_plain %} The registered projects it uses are not touched.{% endif %}</p>
+  <label class="mt-3 block text-sm text-gray-700">Type <code class="rounded bg-gray-100 px-1">{{ project.slug }}</code> to confirm
+    <input name="confirm_slug" autocomplete="off" required pattern="{{ project.slug }}" class="mt-1 block w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm">
+  </label>
+  <button class="mt-3 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Delete</button>
+</form>
+{% endif %}
+{% endblock %}

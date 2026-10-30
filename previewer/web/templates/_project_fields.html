@@ -1,0 +1,55 @@
+{# Project form fields shared by "Add project" and the project's Settings tab. #}
+{% from "_macros.html" import field_error with context %}
+{% set input = "mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" %}
+<div class="grid gap-4 sm:grid-cols-2">
+  <label class="block text-sm font-medium">Name
+    <input name="name" required value="{{ values.name or '' }}" class="{{ input }}">{{ field_error(errors, 'name') }}
+  </label>
+  <label class="block text-sm font-medium">Slug <span class="font-normal text-gray-500">(used in preview addresses)</span>
+    <input name="slug" value="{{ values.slug or '' }}" placeholder="from name" class="{{ input }}">{{ field_error(errors, 'slug') }}
+  </label>
+  <label class="block text-sm font-medium sm:col-span-2">GitHub repository URL
+    <input name="repo_url" required value="{{ values.repo_url or '' }}" placeholder="https://github.com/acme/custom-payroll" class="{{ input }}">{{ field_error(errors, 'repo_url') }}
+  </label>
+  <label class="block text-sm font-medium sm:col-span-2">Git credential
+    <select name="credential_id" class="{{ input }}">
+      <option value="">{{ default_account_label }}</option>
+      {% for a in accounts %}<option value="{{ a.id }}" {% if values.credential_id|string == a.id|string %}selected{% endif %}>{{ a.name }}{% if a.username %} · {{ a.username }}{% endif %}{% if a.is_default %} (default){% endif %}</option>{% endfor %}
+    </select>{{ field_error(errors, 'credential_id') }}
+    <span class="mt-1 block text-xs font-normal text-gray-500">Used to pull this repository, and dependency repos set to "Same as project".
+      {% if can(user, 'developer') %}<a href="/admin/github-accounts" class="text-indigo-600 hover:underline">Manage Git credentials</a>{% endif %}</span>
+  </label>
+  <div class="sm:col-span-2">
+    <button type="button" hx-post="/projects/test-connection" hx-include="closest form" hx-target="#conn-result" hx-indicator="#conn-spin"
+      class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Test connection</button>
+    <span id="conn-spin" class="htmx-indicator ml-2 text-sm text-gray-500">Checking…</span>
+    <div id="conn-result" class="mt-2"></div>
+  </div>
+  <label class="block text-sm font-medium">Default Odoo version
+    <select name="default_odoo_version" class="{{ input }}">
+      {% for v in versions %}<option value="{{ v }}" {% if v == values.default_odoo_version %}selected{% endif %}>{{ v }}</option>{% endfor %}
+    </select>{{ field_error(errors, 'default_odoo_version') }}
+  </label>
+  <label class="block text-sm font-medium">Edition
+    <select name="edition" class="{{ input }}">
+      {% for e in ['community', 'enterprise'] %}<option value="{{ e }}" {% if e == values.edition %}selected{% endif %}>{{ e|capitalize }}</option>{% endfor %}
+    </select>{{ field_error(errors, 'edition') }}
+    <span class="mt-1 block text-xs font-normal text-gray-500">Enterprise adds the Odoo Enterprise addons from each version's Enterprise source (Odoo versions page).</span>
+  </label>
+  <label class="block text-sm font-medium">Module name <span class="font-normal text-gray-500">(when the repo root is a module)</span>
+    <input name="module_name" value="{{ values.module_name or '' }}" placeholder="defaults to the repo name" class="{{ input }}">{{ field_error(errors, 'module_name') }}
+  </label>
+  <label class="block text-sm font-medium">Modules to install
+    <input name="modules_to_install" value="{{ values.modules_to_install or '' }}" placeholder="blank = every module in the repo" class="{{ input }}">{{ field_error(errors, 'modules_to_install') }}
+  </label>
+  <label class="block text-sm font-medium">Auto-select new branches matching <span class="font-normal text-gray-500">(regex, blank = none)</span>
+    <input name="auto_build_regex" value="{{ values.auto_build_regex or '' }}" placeholder="e.g. ^v18" class="{{ input }} font-mono">{{ field_error(errors, 'auto_build_regex') }}
+    <span class="mt-1 block text-xs font-normal text-gray-500">Other new branches are listed but only built once you select them.</span>
+  </label>
+  <label class="block text-sm font-medium">Hide branches matching <span class="font-normal text-gray-500">(regex)</span>
+    <input name="branch_exclude_regex" value="{{ values.branch_exclude_regex or '' }}" placeholder="e.g. ^backup" class="{{ input }} font-mono">{{ field_error(errors, 'branch_exclude_regex') }}
+  </label>
+  <label class="flex items-center gap-2 text-sm font-medium sm:col-span-2">
+    <input type="checkbox" name="install_demo_data" {% if values.install_demo_data in (True, 'on') %}checked{% endif %} class="h-4 w-4 rounded border-gray-300"> Install demo data
+  </label>
+</div>

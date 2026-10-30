@@ -1,0 +1,46 @@
+{% from "_macros.html" import csrf with context %}
+<div id="modules-available">
+{% if not branch %}
+  <p class="text-sm text-gray-500">No branch to read modules from yet{% if not project.is_combo %}: sync and select a branch first{% endif %}.</p>
+{% elif av.error %}
+  <p class="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">Could not read the modules of {{ branch.name }} from GitHub: {{ av.error }}</p>
+{% else %}
+  {% set rows = av.rows() %}{% set top = av.top_level %}
+  <div class="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+    <span>Install these <strong>{{ top|length }}</strong> top-level module{{ 's' if top|length != 1 }} to get all <strong>{{ av.own|length }}</strong>
+      {{ 'modules of the parts' if project.is_combo else 'modules of ' ~ project.name }}:
+      {% for m in top %}<code class="rounded bg-white px-1.5 py-0.5 text-xs ring-1 ring-indigo-200">{{ m }}</code>{% if not loop.last %} {% endif %}{% endfor %}</span>
+    {% if can(user, 'developer') and top %}
+    <form method="post" action="/projects/{{ project.id }}/module-sets/top-level" class="ml-auto">{{ csrf() }}
+      <input type="hidden" name="branch_id" value="{{ branch.id }}">
+      <button class="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">Create set from top-level modules</button>
+    </form>
+    {% endif %}
+  </div>
+  <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+        <tr><th class="px-4 py-2">Module</th><th class="px-4 py-2">From</th><th class="px-4 py-2">Depends on</th><th class="px-4 py-2">Needed by</th></tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+      {% for r in rows %}
+        <tr class="align-top">
+          <td class="px-4 py-2"><code class="font-medium">{{ r.name }}</code>
+            {% if r.top %}<span class="ml-1 rounded bg-green-50 px-1.5 py-0.5 text-[11px] font-medium text-green-800 ring-1 ring-green-200" title="Nothing else depends on it: install it to get its dependencies">top-level</span>{% endif %}</td>
+          <td class="px-4 py-2 text-xs text-gray-600">{{ r.source }}</td>
+          <td class="px-4 py-2"><div class="flex flex-wrap gap-1">{% for d in r.depends %}
+            {% set kind = 'repo' if d in av.manifests and av.sources.get(d) != 'Odoo Enterprise' else ('ent' if d in av.enterprise else ('core' if (av.core is none or d in av.core or d == 'base') else 'missing')) %}
+            <code class="rounded px-1 py-0.5 text-[11px] {{ {'repo': 'bg-gray-100 text-gray-800', 'ent': 'bg-purple-50 text-purple-800', 'core': 'text-gray-400', 'missing': 'bg-red-50 text-red-700 ring-1 ring-red-200'}[kind] }}" title="{{ {'repo': 'in this build', 'ent': 'Odoo Enterprise', 'core': 'Odoo core', 'missing': 'not found anywhere'}[kind] }}">{{ d }}</code>
+          {% endfor %}</div></td>
+          <td class="px-4 py-2 text-xs text-gray-600">{{ r.required_by|join(', ') or '—' }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="px-4 py-4 text-gray-500">No modules found on {{ branch.name }}.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="mt-2 text-xs text-gray-500">From {{ branch.name }} (Odoo {{ av.version }}).{% if av.enterprise %} Plus {{ av.enterprise|length }} Odoo Enterprise modules available.{% endif %}
+    Legend: <code class="rounded bg-gray-100 px-1 text-[11px]">in this build</code> <code class="rounded bg-purple-50 px-1 text-[11px] text-purple-800">Enterprise</code> <code class="px-1 text-[11px] text-gray-400">Odoo core</code> <code class="rounded bg-red-50 px-1 text-[11px] text-red-700">missing</code></p>
+{% endif %}
+</div>

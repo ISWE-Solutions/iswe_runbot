@@ -1,0 +1,8 @@
+<div id="check-{{ branch.id }}" class="mt-1 max-w-md rounded border border-gray-200 bg-white px-2 py-1 text-xs">
+  <div class="font-medium text-gray-700">Check for Odoo {{ branch.effective_version }}</div>
+  {% for r in results %}
+  <div class="whitespace-pre-line {{ 'text-green-700' if r.ok else 'text-red-700' }}">{{ '✓' if r.ok else '✗' }} {{ r.label }}{% if r.branch %} @ {{ r.branch }}{% endif %}{% if r.message %}: {{ r.message }}{% endif %}</div>
+  {% else %}
+  <div class="text-gray-500">No dependencies to check: only the branch itself is fetched.</div>
+  {% endfor %}
+</div>

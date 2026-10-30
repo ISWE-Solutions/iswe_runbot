@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import tabs with context %}
+{% block title %}{{ project.name }}{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-start gap-3">
+  <div class="min-w-0">
+    <a href="/projects" class="text-sm text-indigo-600 hover:underline">← Projects</a>
+    <h1 class="mt-1 text-2xl font-semibold">{{ project.name }}</h1>
+    <p class="break-all text-sm text-gray-500">
+      <a href="{{ project.repo_url }}" target="_blank" rel="noopener" class="hover:underline">{{ project.repo_url }}</a>
+      · default Odoo {{ project.default_odoo_version }} · {{ project.edition }}
+    </p>
+  </div>
+  <div class="ml-auto flex flex-wrap gap-2">
+    <a href="/?project={{ project.slug|urlencode }}" class="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm hover:bg-gray-50">Board</a>
+    {% if can(user, 'developer') %}
+    <form method="post" action="/projects/{{ project.id }}/sync">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+      <button class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Sync branches now</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{{ tabs([('branches', 'Branches'), ('deps', 'Dependencies', n_deps), ('modules', 'Modules', n_sets)]
+        + ([('settings', 'Settings')] if can(user, 'admin') else []), tab, '/projects/' ~ project.id, 'Project sections') }}
+{% if tab == 'branches' %}
+<form method="get" class="mb-3 flex flex-wrap gap-2">
+  <input type="hidden" name="tab" value="branches"><input type="hidden" name="sel" value="{{ sel }}">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search branches" aria-label="Search branches" class="w-56 rounded-md border border-gray-300 px-3 py-1.5 text-sm">
+  <select name="status" aria-label="Build status" class="rounded-md border border-gray-300 px-3 py-1.5 text-sm" onchange="this.form.submit()">
+    <option value="">All statuses</option>
+    {% for st in ['running', 'building', 'queued', 'sleeping', 'failed', 'stopped', 'none', 'deleted'] %}
+    <option value="{{ st }}" {% if st == status %}selected{% endif %}>{{ {'none': 'not built', 'deleted': 'deleted on GitHub'}.get(st, st) }}</option>
+    {% endfor %}
+  </select>
+  <button class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Filter</button>
+</form>
+<script>function pvNoneTicked() { return !document.querySelector('#branches-table input[name=ids]:checked'); }</script>
+{% include "_branches_table.html" %}
+{% elif tab == 'deps' %}
+{% include "_deps_tab.html" %}
+{% elif tab == 'modules' %}
+{% include "_modules_tab.html" %}
+{% else %}
+{% include "_project_settings.html" %}
+{% endif %}
+{% endblock %}

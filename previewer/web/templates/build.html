@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, client_tabs, csrf with context %}
+{% from "_install_plan.html" import install_plan %}
+{% from "_why.html" import why_panel with context %}
+{% block title %}Build {{ build.id }} · {{ branch.name }}{% endblock %}
+{% block content %}
+<a href="/branches/{{ branch.id }}" class="text-sm text-indigo-600 hover:underline">← {{ project.name }} / {{ branch.name }}</a>
+<div class="mt-1 flex flex-wrap items-center gap-3">
+  <h1 class="text-2xl font-semibold">Build #{{ build.id }}</h1>
+  <span id="build-status" class="inline-flex">{{ badge(build.status) }}</span>
+  <span class="text-sm text-gray-600"><code>{{ build.short_sha }}</code> · Odoo {{ build.odoo_version }}{% if build.db_name %} · db <code>{{ build.db_name }}</code>{% endif %}</span>
+  <a href="/builds/{{ build.id }}/log/download" class="ml-auto rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Download log</a>
+  {% if can(user, 'developer') and build.status != 'building' %}
+  <form method="post" action="/builds/{{ build.id }}/delete"
+        onsubmit="return confirm('{% if build.status in ('running', 'sleeping', 'stopped') %}Delete build #{{ build.id }}? This stops the branch preview.{% else %}Delete build #{{ build.id }} and its log?{% endif %}')">{{ csrf() }}
+    <button class="rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm text-red-700 hover:bg-red-50">Delete build</button>
+  </form>
+  {% endif %}
+</div>
+{% set findings = findings_for(build) %}
+{% set why_lines = dependency_lines(build.error_summary, 10) if build.status == 'failed' and not findings else [] %}
+{% set plan = plan_from_dict(build.install_plan) %}
+<div class="mt-5">
+{{ client_tabs('build', ([('why', 'Why it failed', findings|length or (1 if why_lines else none), 'alert')] if build.status == 'failed' else [])
+   + [('plan', 'Install plan'), ('log', 'Log'), ('details', 'Details')], tab, 'Build sections') }}
+</div>
+
+{% if build.status == 'failed' %}
+<section data-tab-panel="build:why">
+  {% if findings %}{{ why_panel(findings, build) }}{% endif %}
+  {% if why_lines %}
+  <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+    <p class="font-semibold"><i class="bi bi-exclamation-octagon-fill"></i> Modules could not install</p>
+    <ul class="mt-1 list-disc space-y-0.5 pl-5">{% for ln in why_lines %}<li>{{ ln }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+  {% if not findings and not why_lines %}
+  <p class="rounded-lg border border-gray-200 bg-white px-4 py-6 text-sm text-gray-600">No specific cause was recognised. See the <b>Log</b> and <b>Details</b> tabs.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+<section data-tab-panel="build:plan">
+{% if plan %}<div>{{ install_plan(plan, explain_plan(build.install_plan, project.edition) if not why_lines else '', grouped_install(plan)) }}</div>{% endif %}
+{% if not plan %}<p class="rounded-lg border border-gray-200 bg-white px-4 py-6 text-sm text-gray-600">This build has no install plan (it failed before modules were planned, or predates install plans).</p>{% endif %}
+</section>
+
+<section data-tab-panel="build:log">
+{% if truncated %}<p class="mt-4 text-xs text-gray-500">Showing the end of the log; download it for the full text.</p>{% endif %}
+<pre id="log" class="h-[70vh] overflow-auto whitespace-pre-wrap break-all rounded-lg bg-gray-900 p-4 font-mono text-xs leading-relaxed text-gray-100"></pre>
+<div id="log-poller" hx-get="/builds/{{ build.id }}/log?offset={{ start_offset }}" hx-trigger="load" hx-swap="outerHTML"></div>
+<label class="mt-2 flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" id="follow" checked> Follow output</label>
+<p id="jump-note" class="mt-1 hidden text-xs text-amber-700" role="status"></p>
+</section>
+
+<section data-tab-panel="build:details" class="space-y-4">
+  <div class="rounded-lg border border-gray-200 bg-white p-5 text-sm shadow-sm">
+    <dl class="grid gap-x-6 gap-y-2 sm:grid-cols-[max-content_1fr]">
+      <dt class="text-gray-500">Branch</dt><dd><a class="text-indigo-600 hover:underline" href="/branches/{{ branch.id }}">{{ project.name }} / {{ branch.name }}</a></dd>
+      <dt class="text-gray-500">Commit</dt><dd><code>{{ build.commit_sha }}</code></dd>
+      <dt class="text-gray-500">Odoo</dt><dd>{{ build.odoo_version }}{% if build.image %} · image <code class="text-xs">{{ build.image }}</code>{% endif %}</dd>
+      <dt class="text-gray-500">Database</dt><dd><code>{{ build.db_name or '—' }}</code></dd>
+      <dt class="text-gray-500">Container</dt><dd><code class="text-xs">{{ (build.container_id or '—')[:12] }}</code></dd>
+      <dt class="text-gray-500">Preview</dt><dd>{% if build.host %}<a class="text-indigo-600 hover:underline" href="{{ settings.preview_url(build.host) }}" target="_blank" rel="noopener">{{ build.host }}</a>{% else %}—{% endif %}</dd>
+      <dt class="text-gray-500">Queued</dt><dd>{{ build.created_at|ago }}</dd>
+      <dt class="text-gray-500">Started</dt><dd>{{ build.started_at|ago if build.started_at else '—' }}</dd>
+      <dt class="text-gray-500">Finished</dt><dd>{{ build.finished_at|ago if build.finished_at else '—' }}{% if build.started_at and build.finished_at %} · took {{ ((build.finished_at - build.started_at).total_seconds())|round|int }} s{% endif %}</dd>
+      <dt class="text-gray-500">Last visit</dt><dd>{{ build.last_accessed_at|ago if build.last_accessed_at else '—' }}</dd>
+    </dl>
+  </div>
+  {% if build.dependency_refs %}
+<div><h2 class="mb-1 text-sm font-semibold">Dependencies fetched</h2><div class="flex flex-wrap gap-1 text-xs">
+  {% for d in build.dependency_refs %}<span class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-gray-700" title="{{ d.repo_url }}{% if d.source %} ({{ d.source }}){% endif %}">+ {{ d.name }}@{{ d.branch }}{% if d.sha %} {{ d.sha[:7] }}{% endif %}</span>{% endfor %}
+</div></div>
+{% endif %}
+{% if build.error_summary %}
+<details class="mt-4" open><summary class="cursor-pointer text-xs font-medium text-gray-600">Error summary</summary>
+<pre class="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-red-50 p-3 text-xs text-red-900">{{ build.error_summary }}</pre>
+</details>
+{% endif %}
+</section>
+<script>
+  document.body.addEventListener("htmx:oobAfterSwap", function () {
+    var log = document.getElementById("log");
+    if (document.getElementById("follow").checked) log.scrollTop = log.scrollHeight;
+  });
+  // "Jump to this line in the log": find the finding's text in the loaded log and select it.
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target.closest(".jump-log");
+    if (!btn) return;
+    var log = document.getElementById("log"), note = document.getElementById("jump-note");
+    var needles = JSON.parse(btn.dataset.needles || "[]");
+    var walker = document.createTreeWalker(log, NodeFilter.SHOW_TEXT), nodes = [], text = "", n;
+    while ((n = walker.nextNode())) { nodes.push([n, text.length]); text += n.nodeValue; }
+    var at = -1, needle = "";
+    for (var i = 0; i < needles.length && at < 0; i++) { needle = needles[i]; at = text.indexOf(needle); }
+    if (at < 0) {
+      if (window.pvShowTab && window.pvShowTab.build) window.pvShowTab.build("log");
+      note.textContent = "That line is not in the part of the log shown here; download the log to see all of it.";
+      note.classList.remove("hidden");
+      return;
+    }
+    note.classList.add("hidden");
+    document.getElementById("follow").checked = false;
+    if (window.pvShowTab && window.pvShowTab.build) window.pvShowTab.build("log");
+    var start = nodes.filter(function (x) { return x[1] <= at; }).pop();
+    var end = nodes.filter(function (x) { return x[1] <= at + needle.length; }).pop();
+    var range = document.createRange();
+    range.setStart(start[0], at - start[1]);
+    range.setEnd(end[0], Math.min(end[0].nodeValue.length, at + needle.length - end[1]));
+    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    log.scrollIntoView({block: "start", behavior: "smooth"});
+    var r = range.getBoundingClientRect(), lr = log.getBoundingClientRect();
+    log.scrollTop += r.top - lr.top - lr.height / 3;
+  });
+</script>
+{% endblock %}

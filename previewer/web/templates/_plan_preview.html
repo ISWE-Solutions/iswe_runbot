@@ -1,0 +1,8 @@
+{% from "_install_plan.html" import install_plan %}
+<div id="plan-preview">
+{% if error %}<p class="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">Could not read the modules from GitHub: {{ error }}</p>
+{% elif plan %}
+  {% if requested_auto %}<p class="mb-2 text-xs text-gray-500">Nothing chosen: a build installs {{ 'just the base' if branch.project.is_plain else ('every module of all parts' if branch.project.is_combo else 'every module of the repo') }}.</p>{% endif %}
+  {{ install_plan(plan, why, groups, open=True) }}
+{% endif %}
+</div>

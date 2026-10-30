@@ -1,0 +1,29 @@
+<div id="module-picker" class="space-y-2">
+{% if av and not av.error and av.rows() %}
+  {% set rows = av.rows() %}{% set listed = rows|map(attribute='name')|list %}
+  <div class="flex flex-wrap items-center gap-2 text-xs">
+    <span class="text-gray-500">From {{ branch.name }}:</span>
+    <button type="button" class="rounded border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50"
+            onclick="document.querySelectorAll('#module-picker input[name=modules]').forEach(function (c) { c.checked = c.dataset.top === '1'; }); htmx.trigger('#set-fields', 'refresh')">Pick top-level only</button>
+    <button type="button" class="rounded border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50"
+            onclick="document.querySelectorAll('#module-picker input[name=modules]').forEach(function (c) { c.checked = false; }); htmx.trigger('#set-fields', 'refresh')">Clear</button>
+  </div>
+  <div class="grid max-h-72 gap-1 overflow-y-auto rounded-md border border-gray-200 p-2 sm:grid-cols-2">
+    {% for r in rows %}
+    <label class="flex items-start gap-2 rounded px-1 py-0.5 text-sm hover:bg-gray-50">
+      <input type="checkbox" name="modules" value="{{ r.name }}" data-top="{{ '1' if r.top else '0' }}" {% if r.name in chosen %}checked{% endif %} class="mt-0.5 h-4 w-4 rounded border-gray-300">
+      <span><code>{{ r.name }}</code>{% if r.top %} <span class="text-[11px] text-green-700">top-level</span>{% endif %}
+        <span class="block text-[11px] text-gray-500">{{ r.source }}{% if r.required_by %} · needed by {{ r.required_by|join(', ') }}{% endif %}</span></span>
+    </label>
+    {% endfor %}
+  </div>
+  {% set other = chosen|reject('in', listed)|list %}
+{% else %}
+  {% if av and av.error %}<p class="text-xs text-amber-700">Could not read the modules from GitHub ({{ av.error }}); type the module names instead.</p>
+  {% elif not branch %}<p class="text-xs text-gray-500">No branch to read the modules from; type the module names.</p>{% endif %}
+  {% set other = chosen|list %}
+{% endif %}
+  <label class="block text-xs font-medium text-gray-600">Other modules (comma-separated, e.g. from a dependency or Odoo core)
+    <input name="modules_text" value="{{ other|join(', ') }}" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 font-mono text-sm">
+  </label>
+</div>

@@ -1,0 +1,52 @@
+{# One part of a combined preview: a repository at a branch. Needs: part, projects, accounts,
+   default_label, branches (None until loaded), load_error, error. #}
+{% set i = part.i %}{% set input = "mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" %}
+{% set from_project = part.source.startswith('project:') %}
+<div class="combo-part rounded-md border {{ 'border-red-300' if error else 'border-gray-200' }} bg-gray-50/50 p-4" id="part-{{ i }}">
+  <input type="hidden" name="parts-{{ i }}-dep_id" value="{{ part.dep_id }}">
+  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+    <label class="block text-sm font-medium">Repository
+      <select name="parts-{{ i }}-source" class="{{ input }}"
+              hx-post="/combos/part-row" hx-trigger="change" hx-include="closest .combo-part"
+              hx-vals='{"row": "{{ i }}", "action": "source"}' hx-target="closest .combo-part" hx-swap="outerHTML">
+        <option value="" {% if not part.source %}selected{% endif %}>Choose…</option>
+        {% if projects %}<optgroup label="Registered projects">
+          {% for p in projects %}<option value="project:{{ p.id }}" {% if part.source == 'project:' ~ p.id %}selected{% endif %}>{{ p.name }}{% if p.module_name %} ({{ p.module_name }}){% endif %}</option>{% endfor %}
+        </optgroup>{% endif %}
+        <option value="other" {% if part.source == 'other' %}selected{% endif %}>Other repository…</option>
+      </select>
+    </label>
+    <label class="block text-sm font-medium">Branch
+      <input name="parts-{{ i }}-branch" value="{{ part.branch }}" list="branches-{{ i }}" autocomplete="off"
+             placeholder="{{ 'type to search the loaded branches' if branches else 'load branches, or type a name' }}" class="{{ input }} font-mono">
+      {% if branches %}<datalist id="branches-{{ i }}">{% for n in branches %}<option value="{{ n }}"></option>{% endfor %}</datalist>{% endif %}
+      {% if load_error %}<span class="mt-1 block text-xs font-normal text-red-700">✗ {{ load_error }}</span>
+      {% elif branches is not none %}<span class="mt-1 block text-xs font-normal text-green-700">✓ {{ branches|length }} branches loaded{% if part.branch and part.branch not in branches %} · <span class="text-red-700">“{{ part.branch }}” not found</span>{% endif %}</span>{% endif %}
+    </label>
+    <div class="flex items-end gap-2">
+      <button type="button" class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+              hx-post="/combos/part-row" hx-include="closest .combo-part" hx-vals='{"row": "{{ i }}", "action": "load"}'
+              hx-target="closest .combo-part" hx-swap="outerHTML">Load branches</button>
+      <button type="button" class="rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+              onclick="this.closest('.combo-part').remove()" aria-label="Remove this part">Remove</button>
+    </div>
+  </div>
+  {% if part.source %}
+  <div class="mt-3 grid gap-3 sm:grid-cols-3">
+    <label class="block text-xs font-medium text-gray-600 sm:col-span-1">Repository URL
+      <input name="parts-{{ i }}-repo_url" value="{{ part.repo_url }}" {% if from_project %}readonly{% endif %}
+             placeholder="https://github.com/acme/addons" class="{{ input }} {{ 'bg-gray-100 text-gray-600' if from_project }}">
+    </label>
+    <label class="block text-xs font-medium text-gray-600">Module name <span class="font-normal">(if the repo root is a module)</span>
+      <input name="parts-{{ i }}-module_name" value="{{ part.module_name }}" placeholder="defaults to the repo name" class="{{ input }}">
+    </label>
+    <label class="block text-xs font-medium text-gray-600">Git credential
+      <select name="parts-{{ i }}-credential_id" class="{{ input }}">
+        <option value="">{{ default_label }}</option>
+        {% for a in accounts %}<option value="{{ a.id }}" {% if part.credential_id|string == a.id|string %}selected{% endif %}>{{ a.name }}{% if a.username %} · {{ a.username }}{% endif %}</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+  {% endif %}
+  {% if error %}<p class="mt-2 text-sm text-red-700">{{ error }}</p>{% endif %}
+</div>

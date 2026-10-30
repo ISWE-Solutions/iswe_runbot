@@ -1,0 +1,100 @@
+{% macro badge(status) -%}
+<span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium {{ status_class(status) }}">{{ status if status != 'none' else 'not built' }}</span>
+{%- endmacro %}
+
+{% macro csrf() -%}
+<input type="hidden" hidden name="csrf_token" value="{{ csrf_token(request) }}">
+{%- endmacro %}
+
+{% macro pager(page, path=None) -%}
+{% if page.pages > 1 %}
+<nav class="mt-4 flex items-center justify-between text-sm text-gray-600">
+  <span>{{ page.total }} total · page {{ page.page }} of {{ page.pages }}</span>
+  <span class="flex gap-2">
+    {% if page.has_prev %}<a class="rounded border border-gray-300 bg-white px-3 py-1 hover:bg-gray-50" href="{{ page_url(request, path, page=page.page - 1) }}">Previous</a>{% endif %}
+    {% if page.has_next %}<a class="rounded border border-gray-300 bg-white px-3 py-1 hover:bg-gray-50" href="{{ page_url(request, path, page=page.page + 1) }}">Next</a>{% endif %}
+  </span>
+</nav>
+{% elif page.total %}
+<p class="mt-4 text-sm text-gray-500">{{ page.total }} total</p>
+{% endif %}
+{%- endmacro %}
+
+{% macro field_error(errors, name) -%}
+{% if errors and errors.get(name) %}<p class="mt-1 text-sm text-red-600" data-field-error>{{ errors[name] }}</p>{% endif %}
+{%- endmacro %}
+
+{# Notebook tabs (Odoo style). items: (key, label) or (key, label, count) or (key, label, count, "alert").
+   Server-side: each tab is a link to `url` with ?tab=<key> (deep-linkable, no JS needed).
+   The bar scrolls sideways inside itself on small screens. #}
+{% macro tabs(items, active, url, label="Sections", param="tab") -%}
+{% set sep = '&' if '?' in url else '?' %}
+<nav class="mb-5 flex gap-1 overflow-x-auto border-b border-gray-200" aria-label="{{ label }}">
+  {% for it in items %}{% set key, text = it[0], it[1] %}{% set count = it[2] if it|length > 2 else none %}
+  <a href="{{ url }}{{ sep }}{{ param }}={{ key }}" data-tab="{{ key }}" {% if key == active %}aria-current="page"{% endif %}
+     class="whitespace-nowrap border-b-2 px-4 py-2 text-sm {{ 'border-indigo-600 font-medium text-indigo-700' if key == active else 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900' }}">{{ text }}
+    {%- if count %} <span class="ml-1 rounded-full px-1.5 text-xs {{ 'bg-red-100 text-red-700' if it|length > 3 and it[3] == 'alert' else 'bg-gray-100 text-gray-600' }}">{{ count }}</span>{% endif %}</a>
+  {% endfor %}
+</nav>
+{%- endmacro %}
+
+{# Smaller segmented switch for sub-sections inside a tab. Same item format as tabs(). #}
+{% macro subtabs(items, active, url, param="view", label="Views") -%}
+{% set sep = '&' if '?' in url else '?' %}
+<div class="mb-4 inline-flex overflow-x-auto rounded-md border border-gray-300 bg-white text-sm" role="group" aria-label="{{ label }}">
+  {% for it in items %}{% set key, text = it[0], it[1] %}{% set count = it[2] if it|length > 2 else none %}
+  <a href="{{ url }}{{ sep }}{{ param }}={{ key }}" {% if key == active %}aria-current="page"{% endif %}
+     class="whitespace-nowrap px-3 py-1.5 {{ 'border-l border-gray-300' if not loop.first }} {{ 'bg-indigo-50 font-medium text-indigo-700' if key == active else 'text-gray-600 hover:bg-gray-50' }}">{{ text }}{% if count %} <span class="text-xs text-gray-500">({{ count }})</span>{% endif %}</a>
+  {% endfor %}
+</div>
+{%- endmacro %}
+
+{# Client-side tabs: every panel is rendered (forms keep typed input; a live log keeps loading),
+   only the active one is shown. Without JS every panel is shown. Mark panels with
+   data-tab-panel="<group>:<key>". The active tab is mirrored in ?tab= so it can be linked;
+   window.pvShowTab[group](key) switches from other scripts. Tabs whose panel holds a
+   [data-field-error] get a "!" and the first of them opens. #}
+{% macro client_tabs(group, items, active, label="Sections") -%}
+<nav class="mb-5 hidden gap-1 overflow-x-auto border-b border-gray-200" data-tabs-group="{{ group }}" aria-label="{{ label }}">
+  {% for it in items %}{% set count = it[2] if it|length > 2 else none %}
+  <a href="?tab={{ it[0] }}" role="tab" data-tab="{{ it[0] }}" aria-selected="{{ 'true' if it[0] == active else 'false' }}"
+     class="whitespace-nowrap border-b-2 px-4 py-2 text-sm">{{ it[1] }}
+    {%- if count %} <span class="ml-1 rounded-full px-1.5 text-xs {{ 'bg-red-100 text-red-700' if it|length > 3 and it[3] == 'alert' else 'bg-gray-100 text-gray-600' }}">{{ count }}</span>{% endif -%}
+    <span data-tab-error class="ml-1 hidden rounded-full bg-red-100 px-1.5 text-xs text-red-700">!</span></a>
+  {% endfor %}
+</nav>
+<script>
+(function () {
+  var nav = document.currentScript.previousElementSibling, group = nav.dataset.tabsGroup;
+  var on = "border-indigo-600 font-medium text-indigo-700".split(" "), off = "border-transparent text-gray-600 hover:text-gray-900".split(" ");
+  function show(key, keepUrl) {
+    nav.querySelectorAll("[data-tab]").forEach(function (b) {
+      var a = b.dataset.tab === key; b.setAttribute("aria-selected", a);
+      b.classList.remove.apply(b.classList, a ? off : on); b.classList.add.apply(b.classList, a ? on : off);
+    });
+    document.querySelectorAll('[data-tab-panel^="' + group + ':"]').forEach(function (p) {
+      p.hidden = p.dataset.tabPanel !== group + ":" + key;
+    });
+    if (!keepUrl && window.history.replaceState) {
+      var u = new URL(window.location.href); u.searchParams.set("tab", key); window.history.replaceState(null, "", u);
+    }
+  }
+  window.pvShowTab = window.pvShowTab || {}; window.pvShowTab[group] = show;
+  nav.classList.remove("hidden"); nav.classList.add("flex");
+  nav.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-tab]"); if (b) { e.preventDefault(); show(b.dataset.tab); }
+  });
+  function init() {  // panels come after this script in the page
+    var first = null;
+    document.querySelectorAll('[data-tab-panel^="' + group + ':"]').forEach(function (p) {
+      if (p.querySelector("[data-field-error]")) {
+        var k = p.dataset.tabPanel.split(":")[1]; first = first || k;
+        var mark = nav.querySelector('[data-tab="' + k + '"] [data-tab-error]'); if (mark) mark.classList.remove("hidden");
+      }
+    });
+    show(first || "{{ active }}", true);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
+})();
+</script>
+{%- endmacro %}

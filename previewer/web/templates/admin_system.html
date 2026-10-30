@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, csrf, pager, tabs with context %}
+{% block title %}System{% endblock %}
+{% block content %}
+{% set card = "rounded-lg border border-gray-200 bg-white p-5 shadow-sm" %}
+{% set disk = beat.get('disk') or {} %}
+{% set dock = beat.get('docker') or {} %}
+<h1 class="mb-1 text-2xl font-semibold">System</h1>
+<p class="mb-5 text-sm text-gray-600">Server resources, the build queue, scheduled maintenance and the limits the worker applies.</p>
+
+{% if disk_warning %}
+<div class="alert-strip error mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+  <b>Disk {{ disk_warning.percent_used|round(0)|int }}% full</b> ({{ disk_warning.free_gb }} GB free, warning at {{ disk_warning.threshold|int }}%).
+  New builds pause below {{ values.disk_min_free_gb }} GB free. Delete old previews or raise the disk.
+</div>
+{% endif %}
+
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+  <div class="{{ card }}">
+    <h2 class="text-xs font-bold uppercase tracking-wide text-gray-500">Worker</h2>
+    {% if beat.ok %}<p class="mt-2 font-semibold text-green-700">Running</p>
+    <p class="text-xs text-gray-500">heartbeat {{ beat.age_seconds }}s ago · Docker {{ 'ok' if beat.get('docker_ok') else 'unreachable' }}</p>
+    {% else %}<p class="mt-2 font-semibold text-red-700">Not responding</p>
+    <p class="text-xs text-gray-500">{{ beat.get('reason') or ('last heartbeat %ss ago' % beat.get('age_seconds')) }}</p>{% endif %}
+  </div>
+  <div class="{{ card }}">
+    <h2 class="text-xs font-bold uppercase tracking-wide text-gray-500">Disk (data folder)</h2>
+    {% if disk.get('percent_used') is not none %}
+    {% set pct = disk.percent_used|float %}
+    <p class="mt-2 text-2xl font-bold text-indigo-700">{{ pct|round(0)|int }}%<span class="ml-1 text-sm font-normal text-gray-500">used</span></p>
+    <div class="mt-2 h-2 overflow-hidden rounded bg-gray-100" role="meter" aria-valuenow="{{ pct|round(0)|int }}" aria-valuemin="0" aria-valuemax="100" aria-label="Disk used">
+      <div class="h-2 {{ 'bg-red-600' if disk_warning else 'bg-indigo-600' }}" style="width: {{ [pct, 100]|min }}%"></div>
+    </div>
+    <p class="mt-1 text-xs text-gray-500">{{ disk.get('free_gb', '—') }} GB free of {{ disk.get('total_gb', '—') }} GB</p>
+    {% else %}<p class="mt-2 text-gray-400">—</p>{% endif %}
+  </div>
+  <div class="{{ card }}">
+    <h2 class="text-xs font-bold uppercase tracking-wide text-gray-500">Server</h2>
+    <p class="mt-2 text-sm">CPU cores: <b>{{ dock.get('cpus', '—') }}</b></p>
+    <p class="text-sm">Memory: <b>{{ dock.get('mem_total_gb', '—') }}{% if dock.get('mem_total_gb') is not none %} GB{% endif %}</b></p>
+    <p class="text-xs text-gray-500">Previews use {{ preview_mem_mb if preview_mem_mb is not none else '—' }}{% if preview_mem_mb is not none %} MB{% endif %}</p>
+  </div>
+  <div class="{{ card }}">
+    <h2 class="text-xs font-bold uppercase tracking-wide text-gray-500">Previews</h2>
+    <p class="mt-2 text-2xl font-bold text-indigo-700">{{ running }}<span class="text-sm font-normal text-gray-500"> running of {{ max_running }} allowed</span></p>
+    <p class="text-xs text-gray-500">{{ sleeping }} sleeping · {{ builds.get('stopped', 0) }} stopped · {{ builds.get('failed', 0) }} failed builds kept</p>
+  </div>
+</div>
+
+{% set table = "overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm" %}
+<div class="mt-6">
+{{ tabs([('previews', 'Previews', previews|length), ('queue', 'Build queue', queue|length),
+         ('tasks', 'Scheduled tasks', failed_tasks or none, 'alert'), ('templates', 'Base databases', templates|length),
+         ('settings', 'Settings'), ('jobs', 'Recent jobs')], tab, '/admin/system', 'System sections') }}
+</div>
+
+{% if tab == 'previews' %}
+<div class="{{ table }}">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="text-left"><tr><th class="px-4 py-2">Build</th><th class="px-4 py-2">Preview</th><th class="px-4 py-2 text-right">Memory</th><th class="px-4 py-2 text-right">CPU</th></tr></thead>
+    <tbody class="divide-y divide-gray-100">
+    {% for p in pg.items %}
+    <tr><td class="px-4 py-2"><a class="text-indigo-600 hover:underline" href="/builds/{{ p.build_id }}">#{{ p.build_id }}</a></td>
+      <td class="px-4 py-2">{{ p.get('name', '') }}</td>
+      <td class="px-4 py-2 text-right tabular-nums">{{ p.get('mem_mb', '—') }}{% if p.get('mem_mb') is not none %} MB{% endif %}</td>
+      <td class="px-4 py-2 text-right tabular-nums">{{ p.get('cpu_percent', '—') }}{% if p.get('cpu_percent') is not none %}%{% endif %}</td></tr>
+    {% else %}<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">No running previews (or the worker has not reported stats yet).</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pager(pg) }}
+
+{% elif tab == 'queue' %}
+<div class="{{ table }}">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="text-left"><tr><th class="px-4 py-2">#</th><th class="px-4 py-2">Job</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Waiting</th></tr></thead>
+    <tbody class="divide-y divide-gray-100">
+    {% for j, age in queue %}
+    <tr><td class="px-4 py-2">{{ j.id }}</td>
+      <td class="px-4 py-2">{{ j.type }}{% if j.build_id %} · <a class="text-indigo-600 hover:underline" href="/builds/{{ j.build_id }}">build #{{ j.build_id }}</a>{% endif %}</td>
+      <td class="px-4 py-2">{{ j.status }}</td>
+      <td class="px-4 py-2 tabular-nums text-gray-600">{{ (age // 60) ~ 'm ' ~ (age % 60) ~ 's' if age >= 60 else age ~ 's' }}</td></tr>
+    {% else %}<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">Nothing waiting.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% elif tab == 'tasks' %}
+<div class="{{ table }}">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="text-left"><tr><th class="px-4 py-2">Task</th><th class="px-4 py-2">Last run</th><th class="px-4 py-2">Result</th></tr></thead>
+    <tbody class="divide-y divide-gray-100">
+    {% for t in pg.items %}
+    <tr><td class="px-4 py-2 font-mono text-xs">{{ t.name }}</td>
+      <td class="whitespace-nowrap px-4 py-2 text-gray-600">{{ t.last_run_at|ago if t.last_run_at else 'never' }}</td>
+      <td class="px-4 py-2"><span class="{{ 'text-green-700' if t.last_ok else 'text-red-700' }}">{{ '✓' if t.last_ok else '✗' }}</span>
+        <span class="text-xs text-gray-600">{{ t.last_message }}</span></td></tr>
+    {% else %}<tr><td colspan="3" class="px-4 py-6 text-center text-gray-500">No scheduled task has run yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pager(pg) }}
+
+{% elif tab == 'templates' %}
+<p class="mb-3 text-sm text-gray-600">Builds copy one of these instead of installing Odoo (and Enterprise) from scratch.</p>
+<div class="{{ table }}">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="text-left"><tr><th class="px-4 py-2">Odoo</th><th class="px-4 py-2">Edition</th><th class="px-4 py-2">Demo</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Last used</th><th class="px-4 py-2">Key</th></tr></thead>
+    <tbody class="divide-y divide-gray-100">
+    {% for t in pg.items %}
+    <tr><td class="px-4 py-2">{{ t.version }}</td><td class="px-4 py-2">{{ t.edition|capitalize }}</td><td class="px-4 py-2">{{ 'yes' if t.demo else 'no' }}</td>
+      <td class="px-4 py-2"><span class="{{ {'ready': 'text-green-700', 'failed': 'text-red-700'}.get(t.status, 'text-blue-700') }}" title="{{ t.error or '' }}">{{ t.status }}</span></td>
+      <td class="px-4 py-2 text-gray-600">{{ t.last_used_at|ago if t.last_used_at else '—' }}</td>
+      <td class="max-w-xs truncate px-4 py-2 font-mono text-xs text-gray-500" title="{{ t.key }}">{{ t.key }}</td></tr>
+    {% else %}<tr><td colspan="6" class="px-4 py-6 text-center text-gray-500">None yet: the first build of each version and edition creates one.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pager(pg) }}
+
+{% elif tab == 'settings' %}
+{% set editable = can(user, 'admin') %}
+{% if not editable %}<p class="mb-3 text-sm text-gray-600">Only admins can change these.</p>{% endif %}
+<form method="post" action="/admin/system/settings" class="space-y-6 pb-2">
+  {{ csrf() }}
+  <div class="grid gap-6 lg:grid-cols-2">
+  {% for group, fields in groups %}
+    <fieldset class="{{ card }}">
+      <legend class="px-1 text-xs font-bold uppercase tracking-wide text-gray-500">{{ group }}</legend>
+      <div class="space-y-3">
+      {% for key, label, kind, help in fields %}
+        {% if kind == 'bool' %}
+        <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="{{ key }}" class="mt-1" {% if values[key] in ('1', 'on', 'true') %}checked{% endif %} {% if not editable %}disabled{% endif %}>
+          <span><span class="font-medium">{{ label }}</span>{% if help %}<span class="block text-xs text-gray-500">{{ help }}</span>{% endif %}</span></label>
+        {% elif kind == 'secret' %}
+        <div class="text-sm">
+          <label for="slack_url" class="font-medium">{{ label }}</label>
+          <span class="ml-1 text-xs {{ 'text-green-700' if slack_set else 'text-gray-500' }}">{{ '· set' if slack_set else '· not set' }}</span>
+          <input id="slack_url" type="url" name="slack_webhook_url" autocomplete="off" placeholder="https://hooks.slack.com/services/…"
+                 class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" {% if not editable %}disabled{% endif %}>
+          {% if errors.get(key) %}<p class="mt-1 text-xs text-red-700">{{ errors[key] }}</p>{% endif %}
+          <p class="mt-1 text-xs text-gray-500">{{ help }}</p>
+          {% if editable %}
+          <div class="mt-2 flex flex-wrap items-center gap-3">
+            {% if slack_set %}<label class="flex items-center gap-1 text-xs"><input type="checkbox" name="slack_clear"> remove the saved URL</label>{% endif %}
+            {% if slack_set %}<button type="button" hx-post="/admin/system/slack-test" hx-target="#slack-test" class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50">Send test message</button>{% endif %}
+            <span id="slack-test"></span>
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <label class="block text-sm"><span class="font-medium">{{ label }}</span>
+          <input name="{{ key }}" value="{{ values[key] }}" {% if not editable %}disabled{% endif %}
+                 inputmode="{{ 'decimal' if kind in ('int', 'percent', 'float') else 'text' }}"
+                 class="mt-1 block w-40 rounded-md border {{ 'border-red-400' if errors.get(key) else 'border-gray-300' }} px-3 py-1.5 text-sm font-mono">
+          {% if errors.get(key) %}<span class="mt-1 block text-xs text-red-700" data-field-error>{{ errors[key] }}</span>{% endif %}
+          {% if help %}<span class="mt-1 block text-xs text-gray-500">{{ help }}</span>{% endif %}
+        </label>
+        {% endif %}
+      {% endfor %}
+      </div>
+    </fieldset>
+  {% endfor %}
+  </div>
+  {% if editable %}
+  <div class="sticky bottom-0 z-10 -mx-1 flex items-center gap-3 border-t border-gray-200 bg-white/95 px-1 py-3 backdrop-blur">
+    <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save settings</button>
+    <span class="text-xs text-gray-500">Applies on the worker's next check; build slots after a worker restart.</span>
+  </div>
+  {% endif %}
+</form>
+
+
+{% elif tab == 'jobs' %}
+<form method="get" class="mb-3 flex flex-wrap gap-2">
+  <input type="hidden" name="tab" value="jobs">
+  <select name="jtype" aria-label="Job type" class="rounded-md border border-gray-300 px-3 py-1.5 text-sm" onchange="this.form.submit()">
+    <option value="">All types</option>{% for t in job_types %}<option {% if t == jtype %}selected{% endif %}>{{ t }}</option>{% endfor %}
+  </select>
+  <select name="jstatus" aria-label="Job status" class="rounded-md border border-gray-300 px-3 py-1.5 text-sm" onchange="this.form.submit()">
+    <option value="">All statuses</option>{% for t in job_statuses %}<option {% if t == jstatus %}selected{% endif %}>{{ t }}</option>{% endfor %}
+  </select>
+  <noscript><button class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm">Filter</button></noscript>
+</form>
+<div class="{{ table }}">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="text-left"><tr><th class="px-4 py-2">#</th><th class="px-4 py-2">Type</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Created</th><th class="px-4 py-2">Error</th></tr></thead>
+    <tbody class="divide-y divide-gray-100">
+    {% for j in pg.items %}<tr><td class="px-4 py-2">{{ j.id }}</td><td class="px-4 py-2">{{ j.type }}{% if j.build_id %} · <a class="text-indigo-600 hover:underline" href="/builds/{{ j.build_id }}">#{{ j.build_id }}</a>{% endif %}</td><td class="px-4 py-2">{{ j.status }}</td><td class="whitespace-nowrap px-4 py-2 text-gray-600">{{ j.created_at|ago }}</td><td class="max-w-md truncate px-4 py-2 text-red-700" title="{{ j.error or '' }}">{{ j.error or '' }}</td></tr>
+    {% else %}<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">No jobs match.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pager(pg) }}
+{% endif %}
+{% endblock %}

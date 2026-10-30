@@ -1,0 +1,77 @@
+{% from "_macros.html" import csrf, pager with context %}
+{% set btn = "rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50" %}
+<div class="mb-4 rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+  Each build of a {{ project.name }} branch also fetches these repositories and puts them on the Odoo addons path.
+  The branch used for a dependency is, in order: the <strong>branch override</strong> set in a branch's settings,
+  else the <strong>branch mapped to the Odoo version</strong> here, else the <strong>branch named after the version</strong> (e.g. <code>18.0</code>).
+  Selecting a branch checks on GitHub that all of them exist before it builds.
+</div>
+<div class="mb-3 flex flex-wrap items-center gap-2">
+  <form method="get" class="flex gap-1">
+    <input type="hidden" name="tab" value="deps">
+    <input type="search" name="dq" value="{{ dq }}" placeholder="Search dependencies" aria-label="Search dependencies" class="w-56 rounded-md border border-gray-300 px-3 py-1.5 text-sm">
+    <button class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Search</button>
+  </form>
+  {% if can(user, 'admin') %}
+  <a href="/projects/{{ project.id }}/deps/new" class="ml-auto rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add dependency</a>
+  {% endif %}
+</div>
+<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+      <tr>
+        <th class="px-4 py-3">Module</th><th class="px-4 py-3">Repository</th>
+        {% for v in dep_versions %}<th class="px-4 py-3">Odoo {{ v }}</th>{% endfor %}
+        <th class="px-4 py-3">Git credential</th><th class="px-4 py-3 text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+    {% for d in deps_page.items %}
+      <tr class="align-top">
+        <td class="px-4 py-3 font-mono font-medium">{{ d.root_module_name }}</td>
+        <td class="px-4 py-3"><a href="{{ d.repo_url }}" target="_blank" rel="noopener" class="text-indigo-600 hover:underline">{{ github_base(d.repo_url) or d.repo_url }}</a></td>
+        {% for v in dep_versions %}
+        <td class="px-4 py-3 font-mono text-xs">{% if (d.branch_map or {}).get(v) %}{{ d.branch_map[v] }}{% else %}<span class="text-gray-400" title="No mapping: uses the branch named after the version">{{ v }}</span>{% endif %}</td>
+        {% endfor %}
+        <td class="px-4 py-3 text-xs text-gray-600">{{ dep_account[d.id] }}</td>
+        <td class="px-4 py-3">
+          {% if can(user, 'admin') %}
+          <div class="flex flex-wrap justify-end gap-1">
+            <a href="/projects/{{ project.id }}/deps/{{ d.id }}/edit" class="{{ btn }}">Edit</a>
+            <form method="post" action="/projects/{{ project.id }}/deps/{{ d.id }}/move">{{ csrf() }}<input type="hidden" name="dir" value="up"><button class="{{ btn }}" title="Move up" aria-label="Move {{ d.root_module_name }} up" {% if loop.first and deps_page.page == 1 %}disabled{% endif %}>↑</button></form>
+            <form method="post" action="/projects/{{ project.id }}/deps/{{ d.id }}/move">{{ csrf() }}<input type="hidden" name="dir" value="down"><button class="{{ btn }}" title="Move down" aria-label="Move {{ d.root_module_name }} down" {% if loop.last and not deps_page.has_next %}disabled{% endif %}>↓</button></form>
+            <form method="post" action="/projects/{{ project.id }}/deps/{{ d.id }}/delete" onsubmit="return confirm('Remove dependency {{ d.root_module_name }}? Builds after this will not fetch it.')">{{ csrf() }}<button class="{{ btn }} text-red-700">Delete</button></form>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    {% if enterprise is not none %}
+      <tr class="align-top bg-gray-50">
+        <td class="px-4 py-3 font-medium">Odoo Enterprise</td>
+        <td class="px-4 py-3 text-xs text-gray-600">
+          {% set repos = enterprise.values()|map(attribute='repo_url')|select|map('string')|unique|list %}
+          {% for r in repos %}<div>{{ (github_base(r) or r)|replace('https://github.com/', '') }}</div>{% else %}not configured{% endfor %}
+          <div class="text-gray-400">set per Odoo version{% if can(user, 'admin') %} on the <a href="/admin/versions" class="text-indigo-600 hover:underline">Odoo versions</a> page{% endif %}</div>
+        </td>
+        {% for v in dep_versions %}{% set av = enterprise.get(v) %}
+        <td class="px-4 py-3 text-xs">
+          {% if av and av.ok %}<span class="text-green-700" title="{{ github_base(av.repo_url) or av.repo_url }} @ {{ av.branch }}">✓ {{ av.branch }}</span>
+          {% elif av %}<span class="text-red-700" title="{{ av.message }}">✗ {{ av.message }}</span>
+          {% else %}<span class="text-gray-400">unknown</span>{% endif %}
+        </td>
+        {% endfor %}
+        <td class="px-4 py-3 text-xs text-gray-600">
+          {% for v in dep_versions %}{% set av = enterprise.get(v) %}{% if av and av.account %}<div>{{ v }}: {{ av.account }}</div>{% endif %}{% endfor %}
+        </td><td></td>
+      </tr>
+    {% endif %}
+    {% if not deps_page.items and enterprise is none %}
+      <tr><td colspan="{{ 4 + dep_versions|length }}" class="px-4 py-8 text-center text-sm text-gray-500">
+        {% if dq %}No dependencies match.{% else %}No dependencies: builds fetch only the {{ project.name }} branch itself.{% endif %}
+      </td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+</div>
+{{ pager(deps_page, '/projects/%d' % project.id) }}

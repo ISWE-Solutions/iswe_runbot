@@ -1,0 +1,9 @@
+<odoo>
+  <record id="v1" model="ir.ui.view">
+    <field name="name">diag.partner.form</field>
+    <field name="model">res.partner</field>
+    <field name="arch" type="xml">
+      <form><field name="x_does_not_exist"/></form>
+    </field>
+  </record>
+</odoo>

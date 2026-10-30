@@ -1,0 +1,107 @@
+{# Plain Odoo preview fields (Try Odoo form and a plain preview's Settings tab).
+   Needs: values, errors, versions, enterprise {version: status}, apps, chosen_apps, other_modules. #}
+{% from "_macros.html" import field_error with context %}
+{% set input = "mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" %}
+{% set card = "flex cursor-pointer flex-col rounded-lg border bg-white px-4 py-3 text-sm has-[:checked]:border-indigo-600 has-[:checked]:ring-2 has-[:checked]:ring-indigo-100 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50" %}
+{% set demo = values.install_demo_data in (True, 'on', 'with') %}
+<div class="space-y-6" id="plain-fields">
+  <fieldset>
+    <legend class="text-sm font-medium">Odoo version</legend>
+    <div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {% for v in versions %}
+      <label class="{{ card }} border-gray-200">
+        <input type="radio" name="default_odoo_version" value="{{ v }}" class="sr-only" {% if v == values.default_odoo_version %}checked{% endif %}>
+        <span class="text-xl font-bold text-iswe-navy">{{ v }}</span>
+        <span class="text-xs text-gray-500">{% set st = enterprise[v] %}{% if st.ok %}Community or Enterprise{% else %}Community only{% endif %}</span>
+      </label>
+      {% endfor %}
+    </div>
+    {{ field_error(errors, 'default_odoo_version') }}
+  </fieldset>
+
+  <div class="grid gap-6 sm:grid-cols-2">
+    <fieldset>
+      <legend class="text-sm font-medium">Edition</legend>
+      <div class="mt-2 grid grid-cols-2 gap-3">
+        <label class="{{ card }} border-gray-200">
+          <input type="radio" name="edition" value="community" class="sr-only" {% if values.edition != 'enterprise' %}checked{% endif %}>
+          <span class="font-semibold">Community</span><span class="text-xs text-gray-500">Open-source core</span>
+        </label>
+        <label class="{{ card }} border-gray-200" id="ee-card">
+          <input type="radio" name="edition" value="enterprise" class="sr-only" {% if values.edition == 'enterprise' %}checked{% endif %}>
+          <span class="font-semibold">Enterprise</span><span class="text-xs text-gray-500">+ Enterprise addons</span>
+        </label>
+      </div>
+      <p id="ee-status" class="mt-1 text-xs text-gray-500"></p>
+      {{ field_error(errors, 'edition') }}
+    </fieldset>
+    <fieldset>
+      <legend class="text-sm font-medium">Demo data</legend>
+      <div class="mt-2 grid grid-cols-2 gap-3">
+        <label class="{{ card }} border-gray-200">
+          <input type="radio" name="install_demo_data" value="without" class="sr-only" {% if not demo %}checked{% endif %}>
+          <span class="font-semibold">Without</span><span class="text-xs text-gray-500">Empty database</span>
+        </label>
+        <label class="{{ card }} border-gray-200">
+          <input type="radio" name="install_demo_data" value="with" class="sr-only" {% if demo %}checked{% endif %}>
+          <span class="font-semibold">With demo</span><span class="text-xs text-gray-500">Sample customers, products…</span>
+        </label>
+      </div>
+    </fieldset>
+  </div>
+
+  <fieldset>
+    <legend class="text-sm font-medium">Apps to install <span class="font-normal text-gray-500">(none = just the base; you can install apps inside Odoo later)</span></legend>
+    <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      {% for tech, label, ee in apps %}
+      <label class="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm {% if ee %}ee-app{% endif %}" title="{{ tech }}">
+        <input type="checkbox" name="apps" value="{{ tech }}" {% if tech in chosen_apps %}checked{% endif %} class="h-4 w-4 rounded border-gray-300">
+        <span class="min-w-0 truncate">{{ label }}</span>
+        {% if ee %}<span class="ml-auto shrink-0 rounded bg-indigo-50 px-1 text-[10px] font-medium text-indigo-700">EE</span>{% endif %}
+      </label>
+      {% endfor %}
+    </div>
+    {{ field_error(errors, 'apps') }}
+    <label class="mt-3 block text-sm font-medium">Other modules <span class="font-normal text-gray-500">(technical names, comma-separated)</span>
+      <input name="other_modules" value="{{ other_modules or '' }}" placeholder="e.g. l10n_zm, website_sale" class="{{ input }} font-mono">{{ field_error(errors, 'other_modules') }}
+    </label>
+  </fieldset>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <label class="block text-sm font-medium">Name
+      <input name="name" value="{{ values.name or '' }}" data-auto="{{ '0' if values.name else '1' }}" placeholder="filled in from your choices" class="{{ input }}">{{ field_error(errors, 'name') }}
+    </label>
+    <label class="block text-sm font-medium">Slug <span class="font-normal text-gray-500">(address: &lt;slug&gt;.{{ settings.domain }}; blank = from the name)</span>
+      <input name="slug" value="{{ values.slug or '' }}" placeholder="from name" class="{{ input }}">{{ field_error(errors, 'slug') }}
+    </label>
+  </div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById("plain-fields");
+  const ent = {{ enterprise|tojson }};
+  const q = (sel) => root.querySelector(sel);
+  const val = (name) => (root.querySelector(`input[name="${name}"]:checked`) || {}).value;
+  const name = q('input[name="name"]');
+  name.addEventListener("input", () => { name.dataset.auto = "0"; });
+  function sync() {
+    const v = val("default_odoo_version"), st = ent[v] || {};
+    const eeRadio = q('input[name="edition"][value="enterprise"]');
+    eeRadio.disabled = st.ok !== true;
+    if (eeRadio.disabled && eeRadio.checked) q('input[name="edition"][value="community"]').checked = true;
+    const msg = q("#ee-status");
+    msg.textContent = st.ok === true ? `Enterprise ${v}: ${st.repo_url.replace("https://github.com/", "").replace(/\.git$/, "")} @ ${st.branch}` : `Enterprise unavailable for ${v}: ${st.message || "no source set"}`;
+    msg.className = "mt-1 text-xs " + (st.ok === true ? "text-gray-500" : "text-amber-700");
+    const ee = val("edition") === "enterprise";
+    root.querySelectorAll(".ee-app").forEach((el) => {
+      el.classList.toggle("hidden", !ee);  // the hidden attribute loses to the flex class
+      if (!ee) el.querySelector("input").checked = false;
+    });
+    if (name.dataset.auto === "1" && v) {
+      name.value = `Odoo ${v.split(".")[0]} ${ee ? "EE" : "CE"}${val("install_demo_data") === "with" ? " + demo" : ""}`;
+    }
+  }
+  root.addEventListener("change", sync);
+  sync();
+})();
+</script>

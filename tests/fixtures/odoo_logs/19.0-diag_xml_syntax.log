@@ -1,0 +1,168 @@
+2026-10-30 15:19:38,102 1 WARNING ? odoo.tools.config: option addons_path, invalid addons directory '/mnt/extra-addons', skipped 
+2026-10-30 15:19:38,103 1 WARNING ? odoo.tools.config: option --without-demo: since 19.0, invalid boolean value: 'all', assume True 
+2026-10-30 15:19:38,103 1 WARNING ? odoo.tools.config: option addons_path, invalid addons directory '/mnt/extra-addons', skipped 
+2026-10-30 15:19:38,103 1 WARNING ? odoo.tools.config: missing --http-interface/http_interface, using 0.0.0.0 by default, will change to 127.0.0.1 in 20.0 
+2026-10-30 15:19:38,103 1 INFO ? odoo: Odoo version 19.0-20261015 
+2026-10-30 15:19:38,103 1 INFO ? odoo: Using configuration file at /etc/odoo/odoo.conf 
+2026-10-30 15:19:38,103 1 INFO ? odoo: addons paths: _NamespacePath(['/usr/lib/python3/dist-packages/odoo/addons', '/var/lib/odoo/addons/19.0', '/mnt/extra/0', '/usr/lib/python3/dist-packages/addons']) 
+2026-10-30 15:19:38,103 1 INFO ? odoo: database: odoo@postgres:default 
+2026-10-30 15:19:40,180 1 INFO diag_xml_syntax_19 odoo.modules.loading: Initializing database diag_xml_syntax_19 
+2026-10-30 15:19:41,294 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_access', defaulting to '' 
+2026-10-30 15:19:41,298 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_access', defaulting to '' 
+2026-10-30 15:19:41,300 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_bad_field_data', defaulting to '' 
+2026-10-30 15:19:41,305 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_bad_field_data', defaulting to '' 
+2026-10-30 15:19:41,310 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_missing_dep', defaulting to '' 
+2026-10-30 15:19:41,319 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_missing_dep', defaulting to '' 
+2026-10-30 15:19:41,322 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_model_error', defaulting to '' 
+2026-10-30 15:19:41,324 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_model_error', defaulting to '' 
+2026-10-30 15:19:41,325 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_py_import', defaulting to '' 
+2026-10-30 15:19:41,326 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_py_import', defaulting to '' 
+2026-10-30 15:19:41,327 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_py_lib', defaulting to '' 
+2026-10-30 15:19:41,330 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_py_lib', defaulting to '' 
+2026-10-30 15:19:41,332 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_py_syntax', defaulting to '' 
+2026-10-30 15:19:41,335 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_py_syntax', defaulting to '' 
+2026-10-30 15:19:41,340 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_view_field', defaulting to '' 
+2026-10-30 15:19:41,343 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_view_field', defaulting to '' 
+2026-10-30 15:19:41,345 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_xml_syntax', defaulting to '' 
+2026-10-30 15:19:41,346 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_xml_syntax', defaulting to '' 
+2026-10-30 15:19:41,347 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_xmlid', defaulting to '' 
+2026-10-30 15:19:41,347 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_xmlid', defaulting to '' 
+2026-10-30 15:19:43,803 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading 1 modules... 
+2026-10-30 15:19:43,804 1 INFO diag_xml_syntax_19 odoo.modules.loading: Loading module base (1/1) 
+2026-10-30 15:19:43,831 1 INFO diag_xml_syntax_19 odoo.registry: module base: creating or updating database tables 
+2026-10-30 15:19:45,412 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of ir.module.module.menus_by_module 
+2026-10-30 15:19:45,414 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of ir.module.module.reports_by_module 
+2026-10-30 15:19:45,414 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of ir.module.module.views_by_module 
+2026-10-30 15:19:45,888 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.partner.user_id 
+2026-10-30 15:19:45,888 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.partner.commercial_partner_id 
+2026-10-30 15:19:45,888 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.partner.complete_name 
+2026-10-30 15:19:45,888 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.partner.lang 
+2026-10-30 15:19:45,888 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.partner.company_registry 
+2026-10-30 15:19:45,888 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.partner.commercial_company_name 
+2026-10-30 15:19:45,888 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.partner.properties 
+2026-10-30 15:19:45,888 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.partner.partner_share 
+2026-10-30 15:19:46,154 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.currency.decimal_places 
+2026-10-30 15:19:46,459 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.company.uses_default_logo 
+2026-10-30 15:19:46,459 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.company.logo_web 
+2026-10-30 15:19:46,465 1 INFO diag_xml_syntax_19 odoo.models: Computing parent_path for table res_company... 
+2026-10-30 15:19:46,566 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.users.signature 
+2026-10-30 15:19:46,567 1 INFO diag_xml_syntax_19 odoo.models: Prepare computation of res.users.share 
+2026-10-30 15:19:50,865 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/res_bank.xml 
+2026-10-30 15:19:50,872 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/res.lang.csv 
+2026-10-30 15:19:50,897 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/res_lang_data.xml 
+2026-10-30 15:19:50,928 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/res_partner_data.xml 
+2026-10-30 15:19:50,963 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/res_currency_data.xml 
+2026-10-30 15:19:52,253 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/res_company_data.xml 
+2026-10-30 15:19:52,262 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/res_users_data.xml 
+2026-10-30 15:19:53,229 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/report_paperformat_data.xml 
+2026-10-30 15:19:53,239 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/res_country_data.xml 
+2026-10-30 15:19:54,785 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/ir_demo_data.xml 
+2026-10-30 15:19:54,843 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/security/base_groups.xml 
+2026-10-30 15:19:55,123 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/security/base_security.xml 
+2026-10-30 15:19:55,701 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/wizard/wizard_ir_model_menu_create_views.xml 
+2026-10-30 15:19:55,805 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/base_menus.xml 
+2026-10-30 15:19:56,198 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/decimal_precision_views.xml 
+2026-10-30 15:19:56,236 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_config_views.xml 
+2026-10-30 15:19:56,275 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/res.country.state.csv 
+2026-10-30 15:19:57,057 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_actions_views.xml 
+2026-10-30 15:19:57,340 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_asset_views.xml 
+2026-10-30 15:19:57,378 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_config_parameter_views.xml 
+2026-10-30 15:19:57,431 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_cron_views.xml 
+2026-10-30 15:19:57,503 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_cron_trigger_views.xml 
+2026-10-30 15:19:57,567 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_filters_views.xml 
+2026-10-30 15:19:57,635 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_mail_server_views.xml 
+2026-10-30 15:19:57,767 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_model_views.xml 
+2026-10-30 15:19:58,367 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_attachment_views.xml 
+2026-10-30 15:19:58,449 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_rule_views.xml 
+2026-10-30 15:19:58,492 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_sequence_views.xml 
+2026-10-30 15:19:58,601 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_ui_menu_views.xml 
+2026-10-30 15:19:58,700 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_ui_view_views.xml 
+2026-10-30 15:19:58,830 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_default_views.xml 
+2026-10-30 15:19:58,860 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/ir_config_parameter_data.xml 
+2026-10-30 15:19:58,868 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/ir_cron_data.xml 
+2026-10-30 15:19:58,890 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/report/ir_model_report.xml 
+2026-10-30 15:19:58,897 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/report/ir_model_templates.xml 
+2026-10-30 15:19:58,905 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_logging_views.xml 
+2026-10-30 15:19:58,936 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_qweb_widget_templates.xml 
+2026-10-30 15:19:58,973 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_module_views.xml 
+2026-10-30 15:19:59,113 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/ir_module_category_data.xml 
+2026-10-30 15:19:59,220 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/ir_module_module.xml 
+2026-10-30 15:19:59,392 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/report/ir_module_reports.xml 
+2026-10-30 15:19:59,395 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/report/ir_module_report_templates.xml 
+2026-10-30 15:19:59,403 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/wizard/base_module_update_views.xml 
+2026-10-30 15:19:59,431 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/wizard/base_language_install_views.xml 
+2026-10-30 15:19:59,462 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/wizard/base_import_language_views.xml 
+2026-10-30 15:19:59,485 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/wizard/base_module_upgrade_views.xml 
+2026-10-30 15:19:59,527 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/wizard/base_module_uninstall_views.xml 
+2026-10-30 15:19:59,553 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/wizard/base_export_language_views.xml 
+2026-10-30 15:19:59,577 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/wizard/base_partner_merge_views.xml 
+2026-10-30 15:19:59,610 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/data/ir_demo_failure_data.xml 
+2026-10-30 15:19:59,677 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/ir_profile_views.xml 
+2026-10-30 15:19:59,742 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_company_views.xml 
+2026-10-30 15:19:59,795 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_lang_views.xml 
+2026-10-30 15:19:59,870 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_partner_views.xml 
+2026-10-30 15:20:00,170 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_bank_views.xml 
+2026-10-30 15:20:00,230 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_country_views.xml 
+2026-10-30 15:20:00,266 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_currency_views.xml 
+2026-10-30 15:20:00,331 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_groups_views.xml 
+2026-10-30 15:20:00,400 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_users_views.xml 
+2026-10-30 15:20:00,557 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_users_apikeys_views.xml 
+2026-10-30 15:20:00,561 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_device_views.xml 
+2026-10-30 15:20:00,581 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_users_identitycheck_views.xml 
+2026-10-30 15:20:00,605 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/res_config_settings_views.xml 
+2026-10-30 15:20:00,610 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/views/report_paperformat_views.xml 
+2026-10-30 15:20:00,701 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading base/security/ir.model.access.csv 
+2026-10-30 15:20:01,170 1 INFO diag_xml_syntax_19 odoo.modules.loading: Module base loaded in 17.37s, 8455 queries (+8455 other) 
+2026-10-30 15:20:01,172 1 INFO diag_xml_syntax_19 odoo.modules.loading: 1 modules loaded in 17.37s, 8455 queries (+8455 extra) 
+2026-10-30 15:20:01,218 1 INFO diag_xml_syntax_19 odoo.modules.loading: updating modules list 
+2026-10-30 15:20:01,270 1 INFO diag_xml_syntax_19 odoo.addons.base.models.ir_module: ALLOW access to module.update_list on [] to user __system__ #1 via n/a 
+2026-10-30 15:20:02,187 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_access', defaulting to '' 
+2026-10-30 15:20:02,196 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_bad_field_data', defaulting to '' 
+2026-10-30 15:20:02,205 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_missing_dep', defaulting to '' 
+2026-10-30 15:20:02,217 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_model_error', defaulting to '' 
+2026-10-30 15:20:02,236 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_py_import', defaulting to '' 
+2026-10-30 15:20:02,239 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_py_lib', defaulting to '' 
+2026-10-30 15:20:02,242 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_py_syntax', defaulting to '' 
+2026-10-30 15:20:02,249 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_view_field', defaulting to '' 
+2026-10-30 15:20:02,251 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_xml_syntax', defaulting to '' 
+2026-10-30 15:20:02,255 1 WARNING diag_xml_syntax_19 odoo.modules.module: Missing `author` key in manifest for 'diag_xmlid', defaulting to '' 
+2026-10-30 15:20:06,175 1 INFO diag_xml_syntax_19 odoo.addons.base.models.ir_module: ALLOW access to module.button_install on ['diag_xml_syntax'] to user __system__ #1 via n/a 
+2026-10-30 15:20:06,291 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading 15 modules... 
+2026-10-30 15:20:06,291 1 INFO diag_xml_syntax_19 odoo.modules.loading: Loading module diag_xml_syntax (2/15) 
+2026-10-30 15:20:06,306 1 INFO diag_xml_syntax_19 odoo.modules.loading: loading diag_xml_syntax/views/v.xml 
+2026-10-30 15:20:06,318 1 WARNING diag_xml_syntax_19 odoo.modules.loading: Transient module states were reset 
+2026-10-30 15:20:06,319 1 ERROR diag_xml_syntax_19 odoo.registry: Failed to load registry 
+2026-10-30 15:20:06,319 1 CRITICAL diag_xml_syntax_19 odoo.service.server: Failed to initialize database `diag_xml_syntax_19`. 
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/odoo/service/server.py", line 1591, in preload_registries
+    registry = Registry.new(dbname, update_module=update_module, install_modules=config['init'], upgrade_modules=config['update'], reinit_modules=config['reinit'])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/odoo/tools/func.py", line 88, in locked
+    return func(inst, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/odoo/orm/registry.py", line 189, in new
+    load_modules(
+  File "/usr/lib/python3/dist-packages/odoo/modules/loading.py", line 464, in load_modules
+    load_module_graph(
+  File "/usr/lib/python3/dist-packages/odoo/modules/loading.py", line 217, in load_module_graph
+    load_data(env, idref, 'init', kind='data', package=package)
+  File "/usr/lib/python3/dist-packages/odoo/modules/loading.py", line 59, in load_data
+    convert_file(env, package.name, filename, idref, mode, noupdate=kind == 'demo')
+  File "/usr/lib/python3/dist-packages/odoo/tools/convert.py", line 696, in convert_file
+    convert_xml_import(env, module, fp, idref, mode, noupdate)
+  File "/usr/lib/python3/dist-packages/odoo/tools/convert.py", line 774, in convert_xml_import
+    doc = etree.parse(xmlfile)
+          ^^^^^^^^^^^^^^^^^^^^
+  File "src/lxml/etree.pyx", line 3570, in lxml.etree.parse
+  File "src/lxml/parser.pxi", line 1973, in lxml.etree._parseDocument
+  File "src/lxml/parser.pxi", line 1993, in lxml.etree._parseFilelikeDocument
+  File "src/lxml/parser.pxi", line 1887, in lxml.etree._parseDocFromFilelike
+  File "src/lxml/parser.pxi", line 1224, in lxml.etree._BaseParser._parseDocFromFilelike
+  File "src/lxml/parser.pxi", line 633, in lxml.etree._ParserContext._handleParseResultDoc
+  File "src/lxml/parser.pxi", line 743, in lxml.etree._handleParseResult
+  File "src/lxml/parser.pxi", line 672, in lxml.etree._raiseParseError
+  File "/mnt/extra/0/diag_xml_syntax/views/v.xml", line 6
+lxml.etree.XMLSyntaxError: Opening and ending tag mismatch: field line 6 and form, line 6, column 39
+2026-10-30 15:20:06,323 1 INFO diag_xml_syntax_19 odoo.service.server: Initiating shutdown 
+2026-10-30 15:20:06,323 1 INFO diag_xml_syntax_19 odoo.service.server: Hit CTRL-C again or send a second signal to force the shutdown. 
+2026-10-30 15:20:06,324 1 INFO diag_xml_syntax_19 odoo.sql_db: ConnectionPool(read/write;used=0/count=0/max=64): Closed 1 connections  

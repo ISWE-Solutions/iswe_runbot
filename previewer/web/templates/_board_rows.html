@@ -1,0 +1,122 @@
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import pager with context %}
+{% from "_why.html" import why_short with context %}
+{% set ibtn = "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-900" %}
+<div id="board-rows" hx-get="/board/rows?{{ qs }}" hx-trigger="every {{ 5 if active else 30 }}s" hx-swap="outerHTML">
+  {% if request.headers.get('hx-request') %}
+    {% set oob = true %}{% include "_board_counters.html" %}
+    {% for f in pop_flashes(request) %}
+    <div class="mb-3 rounded-md border px-4 py-2 text-sm {% if f.kind == 'error' %}border-red-200 bg-red-50 text-red-800{% else %}border-green-200 bg-green-50 text-green-800{% endif %}">{{ f.message }}</div>
+    {% endfor %}
+  {% endif %}
+  {% if not page.items %}
+  <div class="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600">
+    {% if combined %}No combined or plain Odoo previews yet.{% if can(user, 'developer') %} <a class="text-indigo-600 hover:underline" href="/combos/new">Combine repositories</a> or <a class="text-indigo-600 hover:underline" href="/try">try a clean Odoo</a>.{% endif %}
+    {% elif q or show != 'all' %}No branches match these filters.
+    {% elif not projects %}No projects yet.{% if can(user, 'admin') %} <a class="text-indigo-600 hover:underline" href="/projects/new">Add the first one</a>.{% endif %}
+    {% elif unselected %}No branch is selected for building yet.
+    {% else %}No branches yet. Open a project and press “Sync branches now”.{% endif %}
+  </div>
+  {% else %}
+  <div class="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white shadow-sm">
+    {% for b in page.items %}
+    {% set gh = github_base(b.project.repo_url) %}{% set live = b.live_build %}
+    <div class="grid gap-2 px-3 py-2.5 lg:grid-cols-[15rem_minmax(0,1fr)] {% if not b.enabled %}opacity-60{% endif %}">
+      <div class="min-w-0">
+        <div class="flex items-center gap-1.5">
+          {% if can(user, 'developer') %}
+          <button hx-post="/branches/{{ b.id }}/sticky?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML"
+                  title="{{ 'Starred main branch: click to unstar' if b.sticky else 'Star as a main branch (listed first)' }}" aria-label="{{ 'Unstar' if b.sticky else 'Star' }} {{ b.name }}"
+                  class="shrink-0 {{ 'text-amber-400 hover:text-amber-500' if b.sticky else 'text-gray-300 hover:text-amber-400' }}">{{ icon('star' if b.sticky else 'star-outline') }}</button>
+          {% elif b.sticky %}<span class="shrink-0 text-amber-400" title="Starred main branch">{{ icon('star') }}</span>
+          {% else %}<span class="w-4 shrink-0"></span>{% endif %}
+          {% if b.project.is_combo %}
+          <a href="/combos/{{ b.project_id }}" class="truncate font-semibold text-indigo-700 hover:underline">{{ b.project.name }}</a>
+          {% if b.project.is_plain %}
+          <span class="shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-200">plain</span>
+          {% else %}
+          <span class="shrink-0 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-200">combined</span>
+          {% endif %}
+          {% else %}
+          <a href="/branches/{{ b.id }}" class="truncate font-semibold text-indigo-700 hover:underline">{{ b.name }}</a>
+          {% endif %}
+        </div>
+        {% if b.project.is_plain %}
+        {% set desc = plain_describe(b.project) %}
+        <div class="truncate pl-[1.375rem] text-[11px] text-gray-500" title="{{ desc }}">{{ desc }}</div>
+        {% elif b.project.is_combo %}
+        {% set parts = dep_summary(b)|rejectattr('source', 'equalto', 'enterprise')|list %}
+        <div class="truncate pl-[1.375rem] font-mono text-[11px] text-gray-500" title="{% for d in parts %}{{ d.name }}@{{ d.branch }}{% if not loop.last %} + {% endif %}{% endfor %}">{% for d in parts %}{{ d.name }}@{{ d.branch }}{% if not loop.last %} + {% endif %}{% else %}no parts{% endfor %}</div>
+        {% elif not current %}<div class="truncate pl-[1.375rem] text-xs text-gray-500">{{ b.project.name }}</div>{% endif %}
+        <div class="mt-1 flex flex-wrap items-center gap-1 pl-[1.375rem]">
+          {% if gh and not b.project.is_combo %}<a href="{{ gh }}/tree/{{ b.name }}" target="_blank" rel="noopener" class="{{ ibtn }}" title="Branch on GitHub">{{ icon('github', 'h-3.5 w-3.5') }}</a>{% endif %}
+          <span class="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-700"
+                title="{{ 'Version override (project default ' ~ b.project.default_odoo_version ~ ')' if b.odoo_version_override else 'Project default version' }}">Odoo {{ b.effective_version }}{% if b.odoo_version_override %} · override{% endif %}</span>
+          {% if live and live.odoo_version != b.effective_version %}<span class="text-[11px] text-gray-500">running {{ live.odoo_version }}</span>{% endif %}
+          {% if b.project.preview_auth_required %}<span class="text-[11px] text-gray-400" title="Opening the preview needs a dashboard login"><i class="bi bi-lock-fill"></i></span>
+          {% else %}<span class="text-[11px] text-emerald-600" title="Public demo: anyone with the link can open the preview"><i class="bi bi-globe2"></i></span>{% endif %}
+          {% if b.stale_since %}<span class="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600" title="Stopped as stale on {{ b.stale_since.strftime('%Y-%m-%d') }}: no new commits for a while">⏸ stale</span>{% endif %}
+          {% if can(user, 'developer') and b.enabled %}
+          <button hx-post="/branches/{{ b.id }}/rebuild?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML" class="{{ ibtn }}" title="Rebuild {{ b.name }}">{{ icon('rebuild', 'h-3.5 w-3.5') }}</button>
+          {% endif %}
+          {% if (not live and b.builds|selectattr('status', 'in', ['sleeping', 'stopped'])|list) or (live and live.status == 'sleeping') %}
+          <button hx-post="/branches/{{ b.id }}/wake?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML" class="{{ ibtn }}" title="Wake {{ b.name }}">{{ icon('power', 'h-3.5 w-3.5') }}</button>
+          {% endif %}
+          {% if not b.auto_rebuild %}
+            {% set paused_cls = "inline-flex items-center gap-0.5 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-800 ring-1 ring-amber-200" %}
+            {% if can(user, 'developer') %}
+            <button hx-post="/branches/{{ b.id }}/auto-rebuild?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML" class="{{ paused_cls }} hover:bg-amber-100"
+                    title="Auto-rebuild off: new commits are not built. Click to resume.">{{ icon('pause', 'h-3 w-3') }} paused</button>
+            {% else %}<span class="{{ paused_cls }}" title="Auto-rebuild off: new commits are not built">{{ icon('pause', 'h-3 w-3') }} paused</span>{% endif %}
+          {% endif %}
+          {% if b.host_conflict %}<span class="text-[11px] text-amber-700" title="{{ b.host_conflict }}">⚠ host clash</span>{% endif %}
+        </div>
+        {% set nb = unbuilt_commit(b) %}
+        {% if nb %}<p class="mt-1 pl-[1.375rem] text-[11px] text-amber-700" title="Auto-rebuild is off for {{ b.name }}">new commit <code>{{ nb }}</code> not built</p>{% endif %}
+      </div>
+      <div class="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-4">
+        {% for bd in cards[b.id] %}
+        {% set st = card_style(bd.status) %}
+        <div class="min-w-0 overflow-hidden rounded border {{ st.border }} bg-white {% if loop.index > 2 %}hidden lg:block{% endif %}">
+          <div class="flex items-center gap-1.5 px-2 py-1 text-xs {{ st.header }}">
+            {{ icon(st.icon, 'h-3.5 w-3.5 shrink-0') }}
+            <span class="truncate" title="{{ bd.status }} · queued {{ bd.created_at.strftime('%Y-%m-%d %H:%M') }}{% if bd.finished_at %} · finished {{ bd.finished_at.strftime('%H:%M') }}{% endif %}">{{ (bd.finished_at or bd.started_at or bd.created_at)|ago }}</span>
+            {% if gh %}<a href="{{ gh }}/commit/{{ bd.commit_sha }}" target="_blank" rel="noopener" class="ml-auto font-mono hover:underline" title="Commit on GitHub">{{ bd.short_sha }}</a>
+            {% else %}<span class="ml-auto font-mono">{{ bd.short_sha }}</span>{% endif %}
+          </div>
+          <div class="flex items-center gap-1.5 px-2 py-1.5 text-xs">
+            <span class="h-2.5 w-2.5 shrink-0 rounded-sm {{ st.square }}" title="{{ bd.status }}"></span>
+            <span class="min-w-0 flex-1 truncate text-gray-700" title="Build #{{ bd.id }}: Odoo {{ bd.odoo_version }} {{ b.project.edition }}"><span class="hidden sm:inline">Odoo </span>{{ bd.odoo_version }}<span class="sm:hidden"> {{ 'EE' if b.project.edition == 'enterprise' else 'CE' }}</span><span class="hidden sm:inline"> · {{ 'Enterprise' if b.project.edition == 'enterprise' else 'Community' }}</span></span>
+            {% if bd.status in ('running', 'sleeping') and bd.host %}
+            <a href="{{ settings.preview_url(bd.host) }}" target="_blank" rel="noopener" class="{{ ibtn }}" title="Open preview (login admin / admin)">{{ icon('open', 'h-3.5 w-3.5') }}</a>
+            {% endif %}
+            <a href="/builds/{{ bd.id }}" class="{{ ibtn }}" title="Build #{{ bd.id }}: logs and details">{{ icon('gear', 'h-3.5 w-3.5') }}</a>
+            {% if can(user, 'developer') and bd.status != 'building' %}
+            <button hx-post="/builds/{{ bd.id }}/delete?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML"
+                    hx-confirm="{% if bd.status in ('running', 'sleeping', 'stopped') %}Delete build #{{ bd.id }}? This stops the {{ b.name }} preview.{% else %}Delete build #{{ bd.id }} and its log?{% endif %}"
+                    class="{{ ibtn }} hover:border-red-200 hover:text-red-600" title="Delete build #{{ bd.id }}" aria-label="Delete build #{{ bd.id }}">{{ icon('trash', 'h-3.5 w-3.5') }}</button>
+            {% endif %}
+          </div>
+          {% if bd.dependency_refs %}
+          <p class="truncate px-2 pb-1 font-mono text-[11px] text-gray-500" title="{% for d in bd.dependency_refs %}{{ d.name }}@{{ d.branch }}{% if d.sha %} {{ d.sha[:7] }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}">{% for d in bd.dependency_refs %}+ {{ d.name }}@{{ d.branch }}{% if not loop.last %} {% endif %}{% endfor %}</p>
+          {% endif %}
+          {% if bd.status == 'failed' %}
+          {{ why_short(bd, 'line-clamp-3 whitespace-pre-line break-words border-t border-red-100 px-2 py-1 text-[11px] leading-snug text-red-700') }}
+          {% elif bd.status == 'removed' %}
+          <p class="px-2 pb-1 text-[11px] text-gray-400">replaced</p>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="col-span-2 rounded border border-dashed border-gray-300 px-2 py-3 text-center text-xs text-gray-400 lg:col-span-1">not built yet</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {{ pager(page, '/') }}
+  {% endif %}
+  {% for p, n in unselected %}
+  <p class="mt-2 text-xs text-gray-500">{{ p.name }}: {{ n }} branch{{ 'es' if n != 1 else '' }} not selected —
+    <a class="text-indigo-600 hover:underline" href="/projects/{{ p.id }}?tab=branches&sel=unselected">choose branches</a></p>
+  {% endfor %}
+</div>

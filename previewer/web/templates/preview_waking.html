@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Waking up {{ branch.name }}{% endblock %}
+{% block content %}
+<div class="mx-auto mt-10 max-w-lg rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+  <p class="text-sm text-gray-500">{{ project.name }}</p>
+  <h1 class="mt-1 text-xl font-bold">{{ branch.name if not project.is_combo else project.name }}</h1>
+  {% if need_login %}
+  <div class="mx-auto mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-2xl text-gray-500"><i class="bi bi-pause-circle"></i></div>
+  <p class="mt-5 text-gray-700">This preview was stopped because the branch had no new commits for a while.</p>
+  <p class="mt-2 text-sm text-gray-500">Sign in to the dashboard to start it again.</p>
+  <a href="{{ settings.dashboard_url }}/login?next={{ here|urlencode }}"
+     class="mt-6 inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Sign in and wake it</a>
+  {% else %}
+  <div class="mx-auto mt-6 h-14 w-14 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600 border-r-iswe-red" role="status" aria-label="Starting"></div>
+  <p class="mt-5 text-lg font-semibold text-indigo-700">Waking up…</p>
+  <p class="mt-2 text-gray-600">
+    {% if stale %}This preview was stopped as stale (no new commits for a while); it is starting again.
+    {% else %}This preview was asleep after being idle; it is starting again.{% endif %}
+    Usually under a minute.
+  </p>
+  <p class="mt-2 text-xs text-gray-500">This page reloads every 5 seconds and opens the preview when it is ready.
+    Build #{{ build.id }} · <code>{{ build.short_sha }}</code> · Odoo {{ build.odoo_version }}</p>
+  <noscript><meta http-equiv="refresh" content="5"></noscript>
+  <script>setTimeout(function () { location.reload(); }, 5000);</script>
+  {% endif %}
+  <div class="mt-6 text-sm">
+    <a href="{{ settings.dashboard_url }}{{ '/combos/%d' % project.id if project.is_combo else '/branches/%d' % branch.id }}" class="text-indigo-600 hover:underline">Open in the dashboard</a>
+  </div>
+</div>
+{% endblock %}

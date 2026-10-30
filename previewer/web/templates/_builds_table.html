@@ -1,0 +1,49 @@
+{# Builds of one branch with delete controls. Needs: branch, builds (page), btn. #}
+{% from "_macros.html" import badge, pager, csrf with context %}
+{% set dev = can(user, 'developer') %}
+<div class="mb-3 flex flex-wrap items-center gap-2">
+  <h2 class="text-lg font-semibold">Builds</h2>
+  {% if dev and builds.items %}
+  <span class="ml-auto flex flex-wrap gap-2">
+    <button form="builds-form" class="{{ btn }}" onclick="return confirm('Delete the ticked builds and their logs? A running one stops this preview.')">Delete selected</button>
+    {% if branch.builds|selectattr('status', 'equalto', 'failed')|list %}
+    <form method="post" action="/branches/{{ branch.id }}/builds/delete" onsubmit="return confirm('Delete every failed build of this branch and their logs?')">{{ csrf() }}<input type="hidden" name="all_failed" value="1"><button class="{{ btn }}">Delete all failed builds</button></form>
+    {% endif %}
+  </span>
+  {% endif %}
+</div>
+{% if not builds.items %}
+<p class="text-sm text-gray-500">No builds yet.</p>
+{% else %}
+<form id="builds-form" method="post" action="/branches/{{ branch.id }}/builds/delete">{{ csrf() }}</form>
+<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+      <tr>{% if dev %}<th class="w-8 px-4 py-3"><input type="checkbox" aria-label="Tick all builds" class="h-4 w-4 rounded border-gray-300"
+              onclick="document.querySelectorAll('input[name=ids][form=builds-form]').forEach(c => c.checked = this.checked)"></th>{% endif %}
+        <th class="px-4 py-3">#</th><th class="px-4 py-3">Commit</th><th class="px-4 py-3">Odoo</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Started</th><th class="px-4 py-3">Finished</th><th class="px-4 py-3"></th></tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+    {% for bd in builds.items %}
+      <tr>
+        {% if dev %}<td class="px-4 py-2">{% if bd.status != 'building' %}<input type="checkbox" form="builds-form" name="ids" value="{{ bd.id }}" aria-label="Tick build {{ bd.id }}" class="h-4 w-4 rounded border-gray-300">{% endif %}</td>{% endif %}
+        <td class="px-4 py-2">{{ bd.id }}</td>
+        <td class="px-4 py-2"><code>{{ bd.short_sha }}</code></td>
+        <td class="px-4 py-2">{{ bd.odoo_version }}</td>
+        <td class="px-4 py-2">{{ badge(bd.status) }}</td>
+        <td class="px-4 py-2 text-gray-600">{{ (bd.started_at or bd.created_at)|ago }}</td>
+        <td class="px-4 py-2 text-gray-600">{{ bd.finished_at|ago }}</td>
+        <td class="whitespace-nowrap px-4 py-2 text-right">
+          <a href="/builds/{{ bd.id }}" class="text-indigo-600 hover:underline">Logs</a>
+          {% if dev and bd.status != 'building' %}
+          <button type="button" class="ml-3 text-red-600 hover:underline" hx-post="/builds/{{ bd.id }}/delete"
+                  hx-confirm="{% if bd.status in ('running', 'sleeping', 'stopped') %}Delete build #{{ bd.id }}? This stops the {{ branch.name }} preview.{% else %}Delete build #{{ bd.id }} and its log?{% endif %}">Delete</button>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pager(builds) }}
+{% endif %}

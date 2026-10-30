@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf with context %}
+{% block title %}Odoo versions{% endblock %}
+{% set input = "rounded-md border border-gray-300 px-2 py-1 text-sm" %}
+{% block content %}
+<h1 class="mb-2 text-2xl font-semibold">Odoo versions</h1>
+<p class="mb-2 text-sm text-gray-600">Demo flags are passed to <code>odoo -i</code>; check each against <code>odoo --help</code> for that image.</p>
+<p class="mb-6 max-w-3xl text-sm text-gray-600">
+  <strong>Enterprise source:</strong> where Enterprise projects get the Odoo Enterprise addons for each version, and which
+  <a href="/admin/github-accounts" class="text-indigo-600 hover:underline">Git credential</a> pulls them. Blank repository =
+  {% if fallback_repo %}<code>{{ github_base(fallback_repo) or fallback_repo }}</code> (ENTERPRISE_REPO_URL){% else %}none (ENTERPRISE_REPO_URL is not set){% endif %};
+  blank branch = the version name. For example 19.0 can come from <code>odoo/enterprise</code> with an Odoo partner account while 18.0 stays on your own copy.
+</p>
+<div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+      <tr><th class="px-4 py-3">Version</th><th class="px-4 py-3">Docker image</th><th class="px-4 py-3">Demo on</th><th class="px-4 py-3">Demo off</th><th class="px-4 py-3">Enabled</th><th class="px-4 py-3"></th></tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+    {% for v in versions %}
+      <tr class="{% if not v.enabled %}text-gray-500{% endif %}">
+        <td class="px-4 py-2 font-medium align-top" rowspan="2">{{ v.version }}</td>
+        <td class="px-4 py-2" colspan="4">
+          <form method="post" action="/admin/versions/{{ v.version }}" id="v-{{ loop.index }}" class="flex flex-wrap items-center gap-2">
+            {{ csrf() }}
+            <input name="docker_image" value="{{ v.docker_image }}" class="{{ input }} w-40">
+            <input name="demo_flag_on" value="{{ v.demo_flag_on }}" placeholder="(default)" class="{{ input }} w-36 font-mono">
+            <input name="demo_flag_off" value="{{ v.demo_flag_off }}" placeholder="(default)" class="{{ input }} w-44 font-mono">
+            <label class="flex items-center gap-1"><input type="checkbox" name="enabled" {% if v.enabled %}checked{% endif %}> enabled</label>
+            <button class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50">Save</button>
+          </form>
+        </td>
+        <td class="px-4 py-2 text-right">
+          <form method="post" action="/admin/versions/{{ v.version }}/pull">{{ csrf() }}<button class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50">Pull image</button></form>
+          <form method="post" action="/admin/versions/{{ v.version }}/delete" onsubmit="return confirm('Remove Odoo {{ v.version }}?')">{{ csrf() }}<button class="rounded border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Delete</button></form>
+        </td>
+      </tr>
+      {% set st = enterprise.get(v.version) %}
+      <tr class="bg-gray-50/60 {% if not v.enabled %}text-gray-500{% endif %}">
+        <td class="px-4 pb-3 pt-1" colspan="5">
+          <form method="post" action="/admin/versions/{{ v.version }}/enterprise" class="flex flex-wrap items-center gap-2">
+            {{ csrf() }}
+            <span class="text-xs font-medium uppercase tracking-wide text-gray-500">Enterprise</span>
+            <input name="enterprise_repo_url" value="{{ v.enterprise_repo_url }}" aria-label="Enterprise repository for {{ v.version }}"
+                   placeholder="{{ github_base(fallback_repo) or fallback_repo or 'https://github.com/odoo/enterprise' }}" class="{{ input }} w-72">
+            <input name="enterprise_branch" value="{{ v.enterprise_branch }}" aria-label="Enterprise branch for {{ v.version }}" placeholder="{{ v.version }}" class="{{ input }} w-28 font-mono">
+            <select name="enterprise_credential_id" aria-label="Git credential for Enterprise {{ v.version }}" class="{{ input }}">
+              <option value="">{{ default_account_label }}</option>
+              {% for a in accounts %}<option value="{{ a.id }}" {% if v.enterprise_credential_id == a.id %}selected{% endif %}>{{ a.name }}{% if a.username %} · {{ a.username }}{% endif %}</option>{% endfor %}
+            </select>
+            <a href="/admin/github-accounts/new" class="text-xs text-indigo-600 hover:underline" title="Add a GitHub user and token, then pick it here">+ Add credential</a>
+            <button class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50">Save</button>
+            <button type="button" hx-post="/admin/versions/{{ v.version }}/enterprise/check" hx-include="closest form" hx-target="#ent-{{ loop.index }}"
+                    hx-indicator="#ent-spin-{{ loop.index }}" class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50">Check</button>
+            <span id="ent-spin-{{ loop.index }}" class="htmx-indicator text-xs text-gray-500">Asking GitHub…</span>
+          </form>
+          <div id="ent-{{ loop.index }}" class="mt-1">
+            {% if not v.enabled %}<p class="text-xs text-gray-400">Version disabled: not checked.</p>
+            {% elif st and st.ok %}<p class="text-xs text-green-700">✓ {{ (github_base(st.repo_url) or st.repo_url)|replace('https://github.com/', '') }} @ {{ st.branch }} · {{ st.account }}</p>
+            {% elif st and st.ok is none %}<p class="text-xs text-gray-600">{{ st.message }}</p>
+            {% elif st %}<p class="text-xs text-red-700">✗ {{ st.message }}</p>{% endif %}
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<form method="post" action="/admin/versions" class="mt-6 flex flex-wrap items-end gap-2 rounded-lg border border-gray-200 bg-white p-4">
+  {{ csrf() }}
+  <label class="text-sm">Version<input name="version" required placeholder="20.0" class="{{ input }} mt-1 block w-24"></label>
+  <label class="text-sm">Docker image<input name="docker_image" required placeholder="odoo:20" class="{{ input }} mt-1 block w-40"></label>
+  <label class="text-sm">Demo on<input name="demo_flag_on" class="{{ input }} mt-1 block w-36 font-mono"></label>
+  <label class="text-sm">Demo off<input name="demo_flag_off" class="{{ input }} mt-1 block w-44 font-mono"></label>
+  <button class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add version</button>
+</form>
+{% endblock %}

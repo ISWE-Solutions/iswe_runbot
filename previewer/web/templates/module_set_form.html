@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field_error with context %}
+{% block title %}{{ 'Edit ' ~ ms.name if ms else 'Add module set' }} · {{ project.name }}{% endblock %}
+{% set input = "mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" %}
+{% block content %}
+<a href="{{ '/combos/' if project.is_combo else '/projects/' }}{{ project.id }}?tab=modules" class="text-sm text-indigo-600 hover:underline">← {{ project.name }} · Modules</a>
+<h1 class="mt-1 text-2xl font-semibold">{{ 'Edit module set' if ms else 'Add module set' }}</h1>
+<p class="mt-1 max-w-3xl text-sm text-gray-600">A named collection of modules to install. Pick the few top-level modules: Odoo installs whatever they depend on, and the plan on the right shows exactly what a build will install.</p>
+<form method="post" class="mt-5 grid gap-5 lg:grid-cols-2" id="set-form">
+  {{ csrf() }}
+  <div id="set-fields" class="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm"
+       hx-post="/projects/{{ project.id }}/modules/plan" hx-include="#set-form" hx-target="#plan-preview" hx-swap="outerHTML"
+       hx-trigger="change, refresh" hx-sync="this:replace">
+    <label class="block text-sm font-medium">Name
+      <input name="name" value="{{ values.name }}" required class="{{ input }}" placeholder="e.g. Full payroll">{{ field_error(errors, 'name') }}
+    </label>
+    <label class="block text-sm font-medium">Description <span class="font-normal text-gray-500">(optional)</span>
+      <input name="description" value="{{ values.description }}" class="{{ input }}">
+    </label>
+    {% if branch_choices|length > 1 %}
+    <label class="block text-sm font-medium">Read modules from branch
+      <select name="branch_id" class="{{ input }}" hx-get="/projects/{{ project.id }}/modules/checkboxes" hx-include="#set-form" hx-target="#module-picker" hx-swap="outerHTML">
+        {% for b in branch_choices %}<option value="{{ b.id }}" {% if branch and b.id == branch.id %}selected{% endif %}>{{ b.name }}{% if not b.enabled %} (not selected){% endif %}</option>{% endfor %}
+      </select>
+    </label>
+    {% elif branch %}<input type="hidden" name="branch_id" value="{{ branch.id }}">{% endif %}
+    <div>
+      <span class="block text-sm font-medium">Modules</span>
+      {{ field_error(errors, 'modules') }}
+      <div id="module-picker" hx-get="/projects/{{ project.id }}/modules/checkboxes?{{ {'branch_id': branch.id if branch else '', 'chosen': values.modules}|urlencode }}" hx-trigger="load" hx-target="this" hx-swap="outerHTML">
+        <p class="text-xs text-gray-500">Reading manifests from GitHub…</p>
+        <input type="hidden" name="modules_text" value="{{ values.modules }}">
+      </div>
+    </div>
+    {% if not ms %}
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="make_default" class="h-4 w-4 rounded border-gray-300"> Make it the project default</label>
+    {% endif %}
+    <div class="flex gap-3 border-t border-gray-100 pt-4">
+      <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
+      <a href="{{ '/combos/' if project.is_combo else '/projects/' }}{{ project.id }}?tab=modules" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm hover:bg-gray-50">Cancel</a>
+    </div>
+  </div>
+  <div class="space-y-2">
+    <h2 class="text-sm font-semibold text-gray-700">What a build will install</h2>
+    <div id="plan-preview" hx-post="/projects/{{ project.id }}/modules/plan" hx-include="#set-form" hx-trigger="load delay:600ms" hx-swap="outerHTML">
+      <p class="text-sm text-gray-500">Working out the plan…</p>
+    </div>
+  </div>
+</form>
+{% endblock %}

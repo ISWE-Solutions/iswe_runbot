@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field_error with context %}
+{% block title %}{{ 'Edit ' ~ account.name if account else 'Add Git credential' }}{% endblock %}
+{% set input = "mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" %}
+{% block content %}
+<a href="/admin/github-accounts" class="text-sm text-indigo-600 hover:underline">← Git credentials</a>
+<h1 class="mt-1 mb-6 text-2xl font-semibold">{{ 'Edit ' ~ account.name if account else 'Add Git credential' }}</h1>
+<form method="post" class="max-w-xl space-y-5 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+  {{ csrf() }}
+  <label class="block text-sm font-medium">Name
+    <input name="name" required value="{{ values.name }}" placeholder="e.g. Odoo partner account" class="{{ input }}">{{ field_error(errors, 'name') }}
+  </label>
+  <label class="block text-sm font-medium">GitHub username
+    <input name="username" value="{{ values.username }}" placeholder="e.g. TBS5596" class="{{ input }}">
+    <span class="mt-1 block text-xs font-normal text-gray-500">Shown in the dashboard and compared with the token's owner when you press Test.</span>
+  </label>
+  <label class="block text-sm font-medium">Token
+    <input name="token" type="password" autocomplete="new-password" value=""
+           placeholder="{{ 'Stored — leave blank to keep' if account else 'github_pat_… or ghp_…' }}" class="{{ input }}">{{ field_error(errors, 'token') }}
+    <span class="mt-1 block text-xs font-normal text-gray-500">Read-only access to the repositories it must pull (Contents + Metadata). Stored encrypted; never shown again.</span>
+  </label>
+  <div class="flex items-center gap-3 border-t border-gray-100 pt-4">
+    <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
+    <a href="/admin/github-accounts" class="text-sm text-gray-600 hover:underline">Cancel</a>
+  </div>
+</form>
+{% endblock %}

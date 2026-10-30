@@ -1,0 +1,63 @@
+{# "Why it failed": findings from previewer/diagnose.py (Build.diagnosis or computed from the log). #}
+
+{% macro why_panel(findings, build) %}
+<section class="mt-4 overflow-hidden rounded-lg border border-red-200 bg-white" aria-labelledby="why-title">
+  <header class="flex flex-wrap items-center gap-2 border-b border-red-100 bg-red-50 px-4 py-2">
+    <h2 id="why-title" class="text-sm font-bold text-red-800"><i class="bi bi-search"></i> Why it failed</h2>
+    <span class="text-xs text-red-700">{{ findings|length }} problem{{ 's' if findings|length != 1 }} found in the build log</span>
+  </header>
+  <ol class="divide-y divide-gray-100">
+    {% for f in findings %}
+    <li class="px-4 py-3">
+      <div class="flex flex-wrap items-start gap-2">
+        <span class="inline-flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-red-800">
+          <i class="bi {{ kind_icon(f.kind) }}"></i> {{ kind_label(f.kind) }}</span>
+        <h3 class="min-w-0 flex-1 text-sm font-semibold text-gray-900">{{ f.title }}</h3>
+        {% if f.message %}
+        <button type="button" class="jump-log text-xs text-indigo-600 hover:underline" data-needles="{{ log_needles(f)|tojson|forceescape }}">
+          <i class="bi bi-arrow-down-circle"></i> Jump to this line in the log</button>
+        {% endif %}
+      </div>
+      {% if f.message %}<pre class="mt-2 whitespace-pre-wrap break-words rounded bg-red-50 px-3 py-2 font-mono text-xs text-red-900">{{ f.message }}</pre>{% endif %}
+      {% if f.file or f.module or f.source %}
+      <p class="mt-2 text-xs text-gray-700"><span class="font-semibold text-gray-500">Where:</span>
+        {% if f.module %}<code class="rounded bg-gray-100 px-1">{{ f.module }}</code>{% endif %}
+        {% if f.file %} · {% if f.url %}<a href="{{ f.url }}" target="_blank" rel="noopener" class="font-mono text-indigo-600 hover:underline" title="Open this line on GitHub">{{ finding_where(f) }} <i class="bi bi-box-arrow-up-right"></i></a>{% else %}<code class="font-mono">{{ finding_where(f) }}</code>{% endif %}{% endif %}
+        {% if f.source %} · <span class="text-gray-500">{{ f.source }}</span>{% endif %}
+      </p>
+      {% endif %}
+      {% if f.excerpt %}<pre class="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-[11px] text-gray-700">{{ f.excerpt }}</pre>{% endif %}
+      {% if f.hint %}
+      <p class="mt-2 rounded border-l-4 border-amber-400 bg-amber-50 px-3 py-2 text-xs text-amber-900"><span class="font-semibold"><i class="bi bi-lightbulb"></i> How to fix:</span> {{ f.hint }}</p>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endmacro %}
+
+{# One line for board cards and tables: icon + title + file:line; full summary on hover. #}
+{% macro why_short(build, classes='') %}
+{% set f = first_finding(build) %}
+{% if f %}
+<p class="{{ classes }}" title="{{ build.error_summary or f.title }}"><i class="bi {{ kind_icon(f.kind) }}"></i> {{ f.title }}{% if finding_where(f) %} · <span class="font-mono">{{ finding_where(f) }}</span>{% endif %}</p>
+{% elif build.error_summary %}
+<p class="{{ classes }}" title="{{ build.error_summary }}">{{ error_headline(build.error_summary) }}</p>
+{% endif %}
+{% endmacro %}
+
+{# Compact block for branch / combo pages: latest failed build -> link to its page. #}
+{% macro why_summary(build, heading) %}
+{% set found = findings_for(build) %}
+<div class="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+  <h3 class="text-sm font-semibold text-red-800">{{ heading }}</h3>
+  {% if found %}
+  <ul class="mt-1 space-y-1 text-xs text-red-900">
+    {% for f in found[:3] %}<li><i class="bi {{ kind_icon(f.kind) }}"></i> <span class="font-medium">{{ f.title }}</span>{% if finding_where(f) %} · <span class="font-mono">{{ finding_where(f) }}</span>{% endif %}</li>{% endfor %}
+  </ul>
+  {% elif build.error_summary %}
+  <pre class="mt-1 max-h-32 overflow-auto whitespace-pre-wrap text-xs text-red-900">{{ build.error_summary }}</pre>
+  {% endif %}
+  <a href="/builds/{{ build.id }}" class="mt-1 inline-block text-xs font-medium text-indigo-600 hover:underline">Why it failed · build #{{ build.id }} →</a>
+</div>
+{% endmacro %}

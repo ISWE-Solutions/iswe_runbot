@@ -1,0 +1,125 @@
+2026-10-30 15:19:38,167 1 INFO ? odoo: Odoo version 18.0-20261015 
+2026-10-30 15:19:38,168 1 INFO ? odoo: Using configuration file at /etc/odoo/odoo.conf 
+2026-10-30 15:19:38,168 1 INFO ? odoo: addons paths: ['/usr/lib/python3/dist-packages/odoo/addons', '/var/lib/odoo/addons/18.0', '/mnt/extra/0'] 
+2026-10-30 15:19:38,168 1 INFO ? odoo: database: odoo@postgres:default 
+Warn: Can't find .pfb for face 'Courier'
+2026-10-30 15:19:39,550 1 INFO ? odoo.addons.base.models.ir_actions_report: Will use the Wkhtmltopdf binary at /usr/local/bin/wkhtmltopdf 
+2026-10-30 15:19:39,559 1 INFO ? odoo.addons.base.models.ir_actions_report: Will use the Wkhtmltoimage binary at /usr/local/bin/wkhtmltoimage 
+2026-10-30 15:19:39,823 1 INFO diag_missing_dep_18 odoo.modules.loading: init db 
+2026-10-30 15:19:43,952 1 INFO diag_missing_dep_18 odoo.modules.loading: loading 1 modules... 
+2026-10-30 15:19:43,956 1 INFO diag_missing_dep_18 odoo.modules.loading: Loading module base (1/1) 
+2026-10-30 15:19:44,016 1 INFO diag_missing_dep_18 odoo.modules.registry: module base: creating or updating database tables 
+2026-10-30 15:19:45,434 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of ir.module.module.menus_by_module 
+2026-10-30 15:19:45,435 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of ir.module.module.reports_by_module 
+2026-10-30 15:19:45,435 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of ir.module.module.views_by_module 
+2026-10-30 15:19:45,880 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of res.partner.user_id 
+2026-10-30 15:19:45,882 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of res.partner.commercial_partner_id 
+2026-10-30 15:19:45,882 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of res.partner.complete_name 
+2026-10-30 15:19:45,882 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of res.partner.company_registry 
+2026-10-30 15:19:45,882 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of res.partner.commercial_company_name 
+2026-10-30 15:19:45,882 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of res.partner.partner_share 
+2026-10-30 15:19:46,165 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of res.currency.decimal_places 
+2026-10-30 15:19:46,485 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of res.company.uses_default_logo 
+2026-10-30 15:19:46,486 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of res.company.logo_web 
+2026-10-30 15:19:46,494 1 INFO diag_missing_dep_18 odoo.models: Computing parent_path for table res_company... 
+2026-10-30 15:19:46,576 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of res.users.signature 
+2026-10-30 15:19:46,576 1 INFO diag_missing_dep_18 odoo.models: Prepare computation of res.users.share 
+2026-10-30 15:19:51,623 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/res_bank.xml 
+2026-10-30 15:19:51,654 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/res.lang.csv 
+2026-10-30 15:19:51,730 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/res_lang_data.xml 
+2026-10-30 15:19:51,833 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/res_partner_data.xml 
+2026-10-30 15:19:52,035 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/res_currency_data.xml 
+2026-10-30 15:19:52,538 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/res_company_data.xml 
+2026-10-30 15:19:52,543 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/res_users_data.xml 
+2026-10-30 15:19:53,688 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/report_paperformat_data.xml 
+2026-10-30 15:19:53,705 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/res_country_data.xml 
+2026-10-30 15:19:55,417 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/ir_demo_data.xml 
+2026-10-30 15:19:55,502 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/security/base_groups.xml 
+2026-10-30 15:19:56,566 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/security/base_security.xml 
+2026-10-30 15:19:56,858 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/base_menus.xml 
+2026-10-30 15:19:56,946 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/decimal_precision_views.xml 
+2026-10-30 15:19:56,990 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/res_config_views.xml 
+2026-10-30 15:19:57,001 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/res.country.state.csv 
+2026-10-30 15:19:58,121 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_actions_views.xml 
+2026-10-30 15:19:58,345 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_asset_views.xml 
+2026-10-30 15:19:58,364 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_config_parameter_views.xml 
+2026-10-30 15:19:58,392 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_cron_views.xml 
+2026-10-30 15:19:58,523 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_cron_trigger_views.xml 
+2026-10-30 15:19:58,586 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_filters_views.xml 
+2026-10-30 15:19:58,677 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_mail_server_views.xml 
+2026-10-30 15:19:58,755 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_model_views.xml 
+2026-10-30 15:19:59,063 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_attachment_views.xml 
+2026-10-30 15:19:59,132 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_rule_views.xml 
+2026-10-30 15:19:59,245 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_sequence_views.xml 
+2026-10-30 15:19:59,381 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_ui_menu_views.xml 
+2026-10-30 15:19:59,476 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_ui_view_views.xml 
+2026-10-30 15:19:59,649 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_default_views.xml 
+2026-10-30 15:19:59,689 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/ir_config_parameter_data.xml 
+2026-10-30 15:19:59,709 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/ir_cron_data.xml 
+2026-10-30 15:19:59,744 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/report/ir_model_report.xml 
+2026-10-30 15:19:59,749 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/report/ir_model_templates.xml 
+2026-10-30 15:19:59,767 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_logging_views.xml 
+2026-10-30 15:19:59,796 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_qweb_widget_templates.xml 
+2026-10-30 15:19:59,809 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_module_views.xml 
+2026-10-30 15:19:59,851 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/ir_module_category_data.xml 
+2026-10-30 15:19:59,954 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/ir_module_module.xml 
+2026-10-30 15:20:00,008 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/report/ir_module_reports.xml 
+2026-10-30 15:20:00,011 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/report/ir_module_report_templates.xml 
+2026-10-30 15:20:00,022 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/wizard/base_module_update_views.xml 
+2026-10-30 15:20:00,039 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/wizard/base_language_install_views.xml 
+2026-10-30 15:20:00,051 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/wizard/base_import_language_views.xml 
+2026-10-30 15:20:00,070 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/wizard/base_module_upgrade_views.xml 
+2026-10-30 15:20:00,094 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/wizard/base_module_uninstall_views.xml 
+2026-10-30 15:20:00,100 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/wizard/base_export_language_views.xml 
+2026-10-30 15:20:00,117 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/wizard/base_partner_merge_views.xml 
+2026-10-30 15:20:00,176 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/data/ir_demo_failure_data.xml 
+2026-10-30 15:20:00,211 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/ir_profile_views.xml 
+2026-10-30 15:20:00,225 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/res_company_views.xml 
+2026-10-30 15:20:00,239 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/res_lang_views.xml 
+2026-10-30 15:20:00,276 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/res_partner_views.xml 
+2026-10-30 15:20:00,483 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/res_bank_views.xml 
+2026-10-30 15:20:00,557 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/res_country_views.xml 
+2026-10-30 15:20:00,810 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/res_currency_views.xml 
+2026-10-30 15:20:00,869 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/res_users_views.xml 
+2026-10-30 15:20:01,360 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/res_device_views.xml 
+2026-10-30 15:20:01,446 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/res_users_identitycheck_views.xml 
+2026-10-30 15:20:01,454 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/res_config_settings_views.xml 
+2026-10-30 15:20:01,463 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/views/report_paperformat_views.xml 
+2026-10-30 15:20:01,496 1 INFO diag_missing_dep_18 odoo.modules.loading: loading base/security/ir.model.access.csv 
+2026-10-30 15:20:02,361 1 INFO diag_missing_dep_18 odoo.modules.loading: Module base loaded in 18.40s, 8244 queries (+8244 other) 
+2026-10-30 15:20:02,361 1 INFO diag_missing_dep_18 odoo.modules.loading: 1 modules loaded in 18.40s, 8244 queries (+8244 extra) 
+2026-10-30 15:20:02,544 1 INFO diag_missing_dep_18 odoo.modules.loading: updating modules list 
+2026-10-30 15:20:02,576 1 INFO diag_missing_dep_18 odoo.addons.base.models.ir_module: ALLOW access to module.update_list on [] to user __system__ #1 via n/a 
+2026-10-30 15:20:04,842 1 INFO diag_missing_dep_18 odoo.addons.base.models.ir_module: ALLOW access to module.button_install on ['diag_missing_dep'] to user __system__ #1 via n/a 
+2026-10-30 15:20:04,914 1 WARNING diag_missing_dep_18 odoo.modules.loading: Transient module states were reset 
+2026-10-30 15:20:04,917 1 ERROR diag_missing_dep_18 odoo.modules.registry: Failed to load registry 
+2026-10-30 15:20:04,918 1 CRITICAL diag_missing_dep_18 odoo.service.server: Failed to initialize database `diag_missing_dep_18`. 
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/odoo/service/server.py", line 1416, in preload_registries
+    registry = Registry.new(dbname, update_module=update_module)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/decorator.py", line 232, in fun
+    return caller(func, *(extras + args), **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/odoo/tools/func.py", line 97, in locked
+    return func(inst, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/odoo/modules/registry.py", line 118, in new
+    odoo.modules.load_modules(registry, force_demo, status, update_module)
+  File "/usr/lib/python3/dist-packages/odoo/modules/loading.py", line 456, in load_modules
+    modules.button_install()
+  File "/usr/lib/python3/dist-packages/decorator.py", line 232, in fun
+    return caller(func, *(extras + args), **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/odoo/addons/base/models/ir_module.py", line 77, in check_and_log
+    return method(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3/dist-packages/odoo/addons/base/models/ir_module.py", line 434, in button_install
+    modules._state_update('to install', ['uninstalled'])
+  File "/usr/lib/python3/dist-packages/odoo/addons/base/models/ir_module.py", line 393, in _state_update
+    raise UserError(_(
+odoo.exceptions.UserError: You try to install module "diag_missing_dep" that depends on module "no_such_module".
+But the latter module is not available in your system.
+2026-10-30 15:20:04,924 1 INFO diag_missing_dep_18 odoo.service.server: Initiating shutdown 
+2026-10-30 15:20:04,925 1 INFO diag_missing_dep_18 odoo.service.server: Hit CTRL-C again or send a second signal to force the shutdown. 
+2026-10-30 15:20:04,925 1 INFO diag_missing_dep_18 odoo.sql_db: ConnectionPool(read/write;used=0/count=0/max=64): Closed 1 connections  

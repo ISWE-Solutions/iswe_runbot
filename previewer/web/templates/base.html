@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Previews{% endblock %} · Odoo Previewer — Iswe Solutions Ltd</title>
+  <link rel="icon" type="image/jpeg" href="/static/img/iswe-logo.jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/theme.css">
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body class="antialiased"{% if user %} hx-headers='{"X-CSRF-Token": "{{ csrf_token(request) }}"}'{% endif %}>
+{% set path = request.url.path %}
+{% macro nav_link(href, icon, label, active) -%}
+  <li><a class="nav-link{% if active %} active{% endif %}" href="{{ href }}"><i class="bi {{ icon }}"></i> {{ label }}</a></li>
+{%- endmacro %}
+{% if user %}
+<div class="layout">
+  <nav id="sidebar" aria-label="Main">
+    <a class="brand" href="/">
+      <img src="/static/img/iswe-logo.jpeg" alt="Iswe Solutions Ltd">
+      <div class="product">Odoo Previewer</div>
+    </a>
+    <div class="brand-rule"></div>
+    <div class="nav-section">Workspace</div>
+    <ul class="nav">
+      {% set combined_tab = request.query_params.get('project') == 'combined' %}
+      {{ nav_link('/', 'bi-grid-1x2-fill', 'Board', path == '/' and not combined_tab) }}
+      {{ nav_link('/projects', 'bi-folder-fill', 'Projects', path.startswith('/projects') or path.startswith('/branches') or path.startswith('/builds')) }}
+      {{ nav_link('/?project=combined', 'bi-diagram-3-fill', 'Combined previews', combined_tab or (path.startswith('/combos') and path != '/combos/new')) }}
+      {% if can(user, 'developer') %}
+      {{ nav_link('/combos/new', 'bi-plus-circle-fill', 'New combined preview', path == '/combos/new') }}
+      {{ nav_link('/try', 'bi-play-circle-fill', 'Try Odoo', path == '/try') }}
+      {% endif %}
+    </ul>
+    {% if can(user, 'developer') %}
+    <div class="nav-section">Administration</div>
+    <ul class="nav">
+      {{ nav_link('/admin/credentials', 'bi-key-fill', 'Git credentials', path.startswith('/admin/github-accounts') or path.startswith('/admin/credentials')) }}
+      {% if can(user, 'admin') %}
+      {{ nav_link('/admin/versions', 'bi-box-seam-fill', 'Odoo versions', path.startswith('/admin/versions')) }}
+      {{ nav_link('/admin/users', 'bi-people-fill', 'Users', path.startswith('/admin/users')) }}
+      {{ nav_link('/admin/system', 'bi-cpu-fill', 'System', path.startswith('/admin/system')) }}
+      {% endif %}
+    </ul>
+    {% endif %}
+    <div class="nav-section">Session</div>
+    <form method="post" action="/logout" class="m-0">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+      <button class="nav-link" type="submit"><i class="bi bi-box-arrow-left"></i> Sign out</button>
+    </form>
+    <div class="sidebar-foot"><strong>{{ user.name or user.email }}</strong><br>
+      {{ user.email }}<br>{{ user.role|capitalize }}</div>
+  </nav>
+  <div id="main">
+    {% if self.tabs() | trim %}<div class="tabs-bar">{% block tabs %}{% endblock %}</div>{% endif %}
+    <main class="page">
+      {% for f in pop_flashes(request) %}
+      <div class="alert-strip {{ f.kind }} mb-4 rounded-lg border px-4 py-3 text-sm
+        {% if f.kind == 'error' %}border-red-200 bg-red-50 text-red-800
+        {% elif f.kind == 'success' %}border-green-200 bg-green-50 text-green-800
+        {% else %}border-sky-200 bg-sky-50 text-sky-900{% endif %}">{{ f.message }}</div>
+      {% endfor %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% else %}
+<main class="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
+  <div class="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white text-center shadow-sm">
+    <div class="px-6 pb-4 pt-6"><img src="/static/img/iswe-logo.jpeg" alt="Iswe Solutions Ltd" class="mx-auto w-40">
+      <div class="mt-2 text-xs font-bold uppercase tracking-[.13em] text-iswe-navy">Odoo Previewer</div></div>
+    <div class="brand-rule"></div>
+  </div>
+  {% for f in pop_flashes(request) %}
+  <div class="alert-strip {{ f.kind }} mb-4 rounded-lg border px-4 py-3 text-sm
+    {% if f.kind == 'error' %}border-red-200 bg-red-50 text-red-800{% else %}border-sky-200 bg-sky-50 text-sky-900{% endif %}">{{ f.message }}</div>
+  {% endfor %}
+  {{ self.content() }}
+</main>
+{% endif %}
+</body>
+</html>

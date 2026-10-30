@@ -1,0 +1,23 @@
+{# Per-version branch choice. `branches` = names from GitHub (None until "Load branches"). #}
+{% set sel = "mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" %}
+<fieldset id="dep-branches" class="rounded-md border border-gray-200 p-4">
+  <legend class="px-1 text-sm font-medium">Branch per Odoo version</legend>
+  {% if load_error %}<p class="mb-2 text-sm text-red-700">✗ {{ load_error }}</p>
+  {% elif branches is none %}<p class="mb-2 text-xs text-gray-500">Press “Load branches” to pick from the repository's branches.</p>
+  {% else %}<p class="mb-2 text-xs text-green-700">✓ {{ branches|length }} branches loaded.</p>{% endif %}
+  <div class="grid gap-3 sm:grid-cols-2">
+    {% for v in versions %}
+    {% set cur = (values.branch_map or {}).get(v, '') %}
+    <label class="block text-sm">Odoo {{ v }}
+      <select name="branch_{{ v }}" class="{{ sel }}">
+        <option value="">(branch named {{ v }})</option>
+        {% if branches %}
+          {% for n in branches %}<option value="{{ n }}" {% if n == cur %}selected{% endif %}>{{ n }}</option>{% endfor %}
+          {% if cur and cur not in branches %}<option value="{{ cur }}" selected>{{ cur }} (not found)</option>{% endif %}
+        {% elif cur %}<option value="{{ cur }}" selected>{{ cur }}</option>{% endif %}
+      </select>
+      {% if branches is not none and not cur and v not in (branches or []) %}<span class="mt-0.5 block text-xs text-amber-700">No branch named {{ v }}: pick one or builds on {{ v }} will be blocked.</span>{% endif %}
+    </label>
+    {% endfor %}
+  </div>
+</fieldset>

@@ -1,0 +1,42 @@
+# Production HTTPS: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Wildcard certificate for DOMAIN and *.DOMAIN via Let's Encrypt DNS-01.
+# Set TLS_ENABLED=true in .env so preview containers get HTTPS routes too.
+services:
+  traefik:
+    command:
+      - --providers.docker.endpoint=tcp://socket-proxy:2375
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=previewer_net
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.dnschallenge.provider=${DNS_PROVIDER}
+      - --accesslog=true
+      - --accesslog.format=json
+      - --accesslog.filepath=/logs/access.log
+      - --ping=true
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Traefik reads the provider-specific variable; add yours if not listed.
+      CF_DNS_API_TOKEN: ${DNS_API_TOKEN}
+      DO_AUTH_TOKEN: ${DNS_API_TOKEN}
+      HETZNER_API_KEY: ${DNS_API_TOKEN}
+    volumes:
+      - type: bind
+        source: ${DATA_DIR:-/srv/previewer}/letsencrypt
+        target: /letsencrypt
+        bind: { create_host_path: true }
+
+  app:
+    labels:
+      traefik.http.routers.dashboard.entrypoints: websecure
+      traefik.http.routers.dashboard.tls.certresolver: le
+      traefik.http.routers.dashboard.tls.domains[0].main: ${DOMAIN}
+      traefik.http.routers.dashboard.tls.domains[0].sans: "*.${DOMAIN}"
+      traefik.http.routers.catchall.entrypoints: websecure
+      traefik.http.routers.catchall.tls: "true"

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf with context %}
+{% block title %}Try Odoo{% endblock %}
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-semibold">Try Odoo</h1>
+  <p class="mt-1 max-w-2xl text-sm text-gray-600">A clean Odoo with no custom code: pick the version, the edition and whether to load demo data, and optionally a few apps. It gets its own address and the usual <code>admin</code> / <code>admin</code> login.</p>
+</div>
+<form method="post" action="/try" class="space-y-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+  {{ csrf() }}
+  {% include "_plain_fields.html" %}
+  <div class="flex items-center gap-3 border-t border-gray-100 pt-4">
+    <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Create and build</button>
+    <a href="/projects" class="text-sm text-gray-600 hover:underline">Cancel</a>
+    <span class="text-xs text-gray-500">A first build of a version takes a minute or two; demo data adds a little.</span>
+  </div>
+</form>
+{% endblock %}

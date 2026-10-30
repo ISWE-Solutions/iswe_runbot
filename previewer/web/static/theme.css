@@ -1,0 +1,109 @@
+/* ISWE theme, ported from iswe_pp (portal/static/css/theme.css): palette from the logo,
+   Manrope, navy sidebar with brand rule. Loaded after app.css (Tailwind). */
+:root {
+  --iswe-navy: #213965;
+  --iswe-navy-dark: #16274a;
+  --iswe-red: #F52205;
+  --iswe-green: #53E90B;
+  --iswe-cyan: #00FEFE;
+  --iswe-yellow: #F9FF01;
+  --ink: #1b2536;
+  --muted: #667089;
+  --border: #dfe4ee;
+  --border-soft: #eef1f7;
+  --surface-soft: #f6f8fc;
+}
+
+body {
+  background: var(--surface-soft);
+  color: var(--ink);
+  font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+  font-size: .92rem;
+}
+
+/* Brand rule: the four logo colours as a hairline accent */
+.brand-rule {
+  height: 3px; flex-shrink: 0;
+  background: linear-gradient(90deg,
+    var(--iswe-red) 0%, var(--iswe-red) 25%,
+    var(--iswe-yellow) 25%, var(--iswe-yellow) 50%,
+    var(--iswe-green) 50%, var(--iswe-green) 75%,
+    var(--iswe-cyan) 75%, var(--iswe-cyan) 100%);
+}
+
+.layout { display: flex; min-height: 100vh; }
+
+#sidebar {
+  width: 252px; flex-shrink: 0;
+  height: 100vh; position: sticky; top: 0; overflow-y: auto;
+  background: var(--iswe-navy);
+  display: flex; flex-direction: column;
+}
+#sidebar .brand { display: block; padding: 1.15rem 1rem 1rem; background: #fff; text-decoration: none; }
+#sidebar .brand img { width: 100%; max-width: 168px; display: block; margin: 0 auto; }
+#sidebar .brand .product {
+  margin-top: .55rem; text-align: center;
+  font-size: .68rem; font-weight: 700; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--iswe-navy);
+}
+#sidebar .nav-section {
+  padding: 1.1rem 1.15rem .35rem;
+  font-size: .64rem; font-weight: 800; letter-spacing: .14em;
+  text-transform: uppercase; color: rgba(255,255,255,.42);
+}
+#sidebar .nav { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+#sidebar .nav-link {
+  color: rgba(255,255,255,.82); border-radius: 8px;
+  margin: 1px .6rem; padding: .5rem .7rem;
+  font-weight: 500; font-size: .88rem;
+  display: flex; align-items: center; gap: .6rem;
+  transition: background .15s ease, color .15s ease;
+  text-decoration: none; background: transparent; border: 0;
+  width: calc(100% - 1.2rem); text-align: left; font-family: inherit; cursor: pointer;
+}
+#sidebar .nav-link:hover { background: rgba(255,255,255,.09); color: #fff; }
+#sidebar .nav-link.active {
+  background: #fff; color: var(--iswe-navy); font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--iswe-red);
+}
+#sidebar .nav-link i { width: 17px; text-align: center; font-size: .95rem; }
+#sidebar .nav-link .badge-count {
+  margin-left: auto; font-size: .68rem; font-weight: 700;
+  background: var(--iswe-red); color: #fff;
+  border-radius: 10px; padding: 1px 7px;
+}
+#sidebar .sidebar-foot {
+  margin-top: auto; padding: 1rem 1.15rem;
+  font-size: .7rem; line-height: 1.5;
+  color: rgba(255,255,255,.45);
+  border-top: 1px solid rgba(255,255,255,.1);
+}
+#sidebar .sidebar-foot strong { color: rgba(255,255,255,.72); }
+
+#main { flex: 1; min-width: 0; }
+#main .page { padding: 1.6rem 1.9rem 3rem; }
+#main .tabs-bar { background: #fff; border-bottom: 1px solid var(--border); padding: 0 1.9rem; }
+
+/* Headings and table heads in the portal's style, over the Tailwind classes */
+#main h1 { color: var(--iswe-navy); font-weight: 800; letter-spacing: -.01em; }
+#main h2 { color: var(--iswe-navy); }
+#main thead th {
+  background: #f7f9fd; color: var(--muted);
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 800;
+}
+
+/* Flash messages: coloured strip on the left, as in the portal */
+.alert-strip { border-left-width: 4px; }
+.alert-strip.error { border-left-color: var(--iswe-red); }
+.alert-strip.success { border-left-color: var(--iswe-green); }
+.alert-strip.info { border-left-color: var(--iswe-cyan); }
+
+@media (max-width: 900px) {
+  .layout { flex-direction: column; }
+  #sidebar { width: 100%; height: auto; position: static; }
+  #sidebar .nav { flex-direction: row; flex-wrap: wrap; }
+  #sidebar .nav-link { width: auto; }
+  #sidebar .sidebar-foot { display: none; }
+  #main .page { padding: 1.1rem; }
+  #main .tabs-bar { padding: 0 1.1rem; }
+}

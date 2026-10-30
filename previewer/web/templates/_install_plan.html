@@ -1,0 +1,29 @@
+{# install_plan(plan, why): plan = modules.InstallPlan; why = explanation text of what cannot install #}
+{% macro install_plan(plan, why='', groups=None, open=False) -%}
+{% if plan %}
+{% set pulled = plan.install|reject('in', plan.requested)|list %}
+<details class="rounded-lg border {{ 'border-red-200 bg-red-50/40' if plan.missing else 'border-gray-200 bg-white' }}" {% if open or plan.missing %}open{% endif %}>
+  <summary class="cursor-pointer select-none px-4 py-2 text-sm font-medium {{ 'text-red-800' if plan.missing else 'text-gray-700' }}">
+    <i class="bi bi-diagram-2"></i> Install plan:
+    {% if plan.missing %}{{ plan.missing|length }} module{{ 's' if plan.missing|length != 1 }} cannot install
+    {% else %}{{ plan.install|length }} module{{ 's' if plan.install|length != 1 }}{% if pulled %} ({{ plan.requested|length }} asked for, {{ pulled|length }} pulled in as dependencies){% endif %} + {{ plan.core|length }} Odoo core{% endif %}
+  </summary>
+  <div class="space-y-3 border-t border-gray-100 px-4 py-3 text-sm">
+    {% if why %}<p class="whitespace-pre-line rounded bg-red-50 px-3 py-2 text-red-800">{{ why }}</p>{% endif %}
+    <div><span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Asked for</span>
+      <div class="mt-1 flex flex-wrap gap-1">{% for m in plan.requested %}<code class="rounded bg-indigo-50 px-1.5 py-0.5 text-xs text-indigo-800 ring-1 ring-indigo-100">{{ m }}</code>{% endfor %}</div></div>
+    <div><span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Installs</span>
+      {% for src, mods in (groups or [('', plan.install)]) %}
+      <div class="mt-1 flex flex-wrap items-center gap-1">{% if src %}<span class="mr-1 text-xs text-gray-500">{{ src }}:</span>{% endif %}
+        {% for m in mods %}<code class="rounded px-1.5 py-0.5 text-xs {{ 'bg-gray-100 text-gray-800' if m in plan.requested else 'bg-white text-gray-600 ring-1 ring-gray-200' }}" title="{{ 'asked for' if m in plan.requested else 'pulled in as a dependency' }}">{{ m }}</code>{% endfor %}</div>
+      {% endfor %}
+      {% if plan.core %}<p class="mt-1 text-xs text-gray-500" title="{{ plan.core|join(', ') }}">+ {{ plan.core|length }} Odoo core module{{ 's' if plan.core|length != 1 }} ({{ plan.core[:8]|join(', ') }}{% if plan.core|length > 8 %}, …{% endif %})</p>{% endif %}
+    </div>
+    {% if plan.missing %}
+    <div><span class="text-xs font-semibold uppercase tracking-wide text-red-700">Missing dependencies</span>
+      <ul class="mt-1 list-disc pl-5 text-red-800">{% for mod, ds in plan.missing|dictsort %}<li><code>{{ mod }}</code> needs {% for d in ds %}<code>{{ d }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</li>{% endfor %}</ul></div>
+    {% endif %}
+  </div>
+</details>
+{% endif %}
+{%- endmacro %}

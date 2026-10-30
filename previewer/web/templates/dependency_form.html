@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field_error with context %}
+{% block title %}{{ 'Edit dependency' if dep else 'Add dependency' }} · {{ project.name }}{% endblock %}
+{% set input = "mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" %}
+{% block content %}
+<a href="/projects/{{ project.id }}?tab=deps" class="text-sm text-indigo-600 hover:underline">← {{ project.name }} · Dependencies</a>
+<h1 class="mt-1 mb-2 text-2xl font-semibold">{{ 'Edit dependency ' ~ dep.root_module_name if dep else 'Add dependency' }}</h1>
+<p class="mb-6 max-w-2xl text-sm text-gray-600">A repository placed on the addons path of every build of {{ project.name }}, for example a module it depends on. Choose which of its branches to use for each Odoo version.</p>
+<form method="post" class="max-w-2xl space-y-5 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+  {{ csrf() }}
+  {% if dep %}<input type="hidden" hidden name="dep_id" value="{{ dep.id }}">{% endif %}
+  <label class="block text-sm font-medium">GitHub repository URL
+    <input name="repo_url" required value="{{ values.repo_url }}" placeholder="https://github.com/acme/bank_extension" class="{{ input }}">
+    {{ field_error(errors, 'repo_url') }}
+  </label>
+  <label class="block text-sm font-medium">Module name
+    <input name="module_name" value="{{ values.module_name }}" placeholder="defaults to the repo name" class="{{ input }} font-mono">
+    <span class="mt-1 block text-xs font-normal text-gray-500">Only when the repository root is itself a module: its technical name, e.g. <code>bank_zm</code>. Leave blank for a repo holding several module folders.</span>
+    {{ field_error(errors, 'module_name') }}
+  </label>
+  <label class="block text-sm font-medium">Git credential
+    <select name="credential_id" class="{{ input }}">
+      <option value="">Same as project ({{ project_account }})</option>
+      {% for a in accounts %}<option value="{{ a.id }}" {% if values.credential_id|string == a.id|string %}selected{% endif %}>{{ a.name }}{% if a.username %} · {{ a.username }}{% endif %}{% if a.is_default %} (default){% endif %}</option>{% endfor %}
+    </select>{{ field_error(errors, 'credential_id') }}
+    <span class="mt-1 block text-xs font-normal text-gray-500">Pick another account when this repository belongs to someone the project's account cannot read.
+      <a href="/admin/github-accounts" class="text-indigo-600 hover:underline">Manage Git credentials</a></span>
+  </label>
+  <div class="flex flex-wrap items-center gap-2">
+    <button type="button" hx-post="/projects/{{ project.id }}/deps/test" hx-include="closest form" hx-target="#dep-conn" hx-indicator="#dep-conn-spin"
+            class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Test connection</button>
+    <button type="button" hx-post="/projects/{{ project.id }}/deps/branches" hx-include="closest form" hx-target="#dep-branches" hx-swap="outerHTML" hx-indicator="#dep-conn-spin"
+            class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Load branches</button>
+    <span id="dep-conn-spin" class="htmx-indicator text-sm text-gray-500">Asking GitHub…</span>
+    <div id="dep-conn" class="w-full"></div>
+  </div>
+  {% include "_dep_branch_selects.html" %}
+  <div class="flex items-center gap-3 border-t border-gray-100 pt-4">
+    <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
+    <a href="/projects/{{ project.id }}?tab=deps" class="text-sm text-gray-600 hover:underline">Cancel</a>
+  </div>
+</form>
+{% endblock %}

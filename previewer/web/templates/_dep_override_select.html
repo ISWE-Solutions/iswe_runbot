@@ -1,0 +1,14 @@
+<span id="dep-override-{{ dep.id }}" class="block">
+  <select name="dep_{{ dep.id }}" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+    <option value="">Project default ({{ default }})</option>
+    {% if names %}
+      {% for n in names %}<option value="{{ n }}" {% if n == current %}selected{% endif %}>{{ n }}</option>{% endfor %}
+      {% if current and current not in names %}<option value="{{ current }}" selected>{{ current }} (not found)</option>{% endif %}
+    {% elif current %}<option value="{{ current }}" selected>{{ current }}</option>{% endif %}
+  </select>
+  {% if load_error %}<span class="mt-1 block text-xs text-red-700">✗ {{ load_error }}</span>
+  {% elif names is none %}
+  <button type="button" hx-post="/branches/{{ branch.id }}/dep-branches/{{ dep.id }}" hx-target="#dep-override-{{ dep.id }}" hx-swap="outerHTML"
+          class="mt-1 text-xs text-indigo-600 hover:underline">Load branches</button>
+  {% endif %}
+</span>

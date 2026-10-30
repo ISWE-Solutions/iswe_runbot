@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "_macros.html" import client_tabs, csrf, field_error with context %}
+{% block title %}Settings · {{ branch.name }}{% endblock %}
+{% set input = "mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" %}
+{% block content %}
+<a href="/branches/{{ branch.id }}" class="text-sm text-indigo-600 hover:underline">← {{ project.name }} / {{ branch.name }}</a>
+<h1 class="mt-1 mb-4 text-2xl font-semibold">Branch settings: {{ branch.name }}</h1>
+{% if blocked %}
+<div class="mb-4 max-w-xl rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+  <span class="font-medium">Not built: the dependency check failed.</span>
+  <ul class="mt-1 list-disc pl-5">{% for r in blocked %}<li>{{ r.message }}</li>{% endfor %}</ul>
+  <p class="mt-1 text-xs">Fix the branches below or the project's Dependencies tab, then save again.</p>
+</div>
+{% endif %}
+<form method="post" class="max-w-2xl rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+  {{ csrf() }}
+  {{ client_tabs('bset', [('general', 'General'), ('modules', 'Modules')] + ([('deps', 'Dependency branches', project.dependencies|length)] if project.dependencies else []), request.query_params.get('tab', 'general'), 'Branch settings sections') }}
+  <div data-tab-panel="bset:general" class="space-y-5">
+  <label class="block text-sm font-medium">Odoo version
+    <select name="odoo_version_override" class="{{ input }}">
+      <option value="">Project default ({{ project.default_odoo_version }})</option>
+      {% for v in versions %}<option value="{{ v }}" {% if v == branch.odoo_version_override %}selected{% endif %}>{{ v }}</option>{% endfor %}
+    </select>
+    {{ field_error(errors, 'odoo_version_override') }}
+    <span class="mt-1 block text-xs font-normal text-gray-500">Changing the version always rebuilds on a fresh database.</span>
+  </label>
+  <label class="block text-sm font-medium">Demo data
+    <select name="demo_data_override" class="{{ input }}">
+      {% set cur = 'default' if branch.demo_data_override is none else ('on' if branch.demo_data_override else 'off') %}
+      <option value="default" {% if cur == 'default' %}selected{% endif %}>Project default ({{ 'on' if project.install_demo_data else 'off' }})</option>
+      <option value="on" {% if cur == 'on' %}selected{% endif %}>On</option>
+      <option value="off" {% if cur == 'off' %}selected{% endif %}>Off</option>
+    </select>
+  </label>
+  <label class="flex items-center gap-2 text-sm font-medium">
+    <input type="checkbox" name="enabled" {% if branch.enabled %}checked{% endif %} class="h-4 w-4 rounded border-gray-300"> Selected for building
+  </label>
+  <p class="-mt-3 text-xs text-gray-500">Saving a selected branch checks its dependencies on GitHub first and rebuilds only if something changed.</p>
+  <label class="flex items-center gap-2 text-sm font-medium">
+    <input type="checkbox" name="auto_rebuild" {% if branch.auto_rebuild %}checked{% endif %} class="h-4 w-4 rounded border-gray-300"> Rebuild automatically when new commits are pushed
+  </label>
+  <p class="-mt-3 text-xs text-gray-500">Off keeps the current preview running on its build while new commits arrive. Rebuild still works whenever you press it.</p>
+  </div>
+  <div data-tab-panel="bset:modules" class="space-y-5">
+  {% set mode = 'custom' if (branch.modules_override or '').strip() else ('set' if branch.module_set_id else 'default') %}
+  <fieldset class="rounded-md border border-gray-200 p-4">
+    <legend class="px-1 text-sm font-medium">Modules to install</legend>
+    <label class="flex items-start gap-2 text-sm"><input type="radio" name="modules_mode" value="default" {% if mode == 'default' %}checked{% endif %} class="mt-1">
+      <span>Project default <span class="block text-xs text-gray-500">{{ project_default }}</span></span></label>
+    <label class="mt-2 flex items-start gap-2 text-sm"><input type="radio" name="modules_mode" value="set" {% if mode == 'set' %}checked{% endif %} {% if not project.module_sets %}disabled{% endif %} class="mt-1">
+      <span class="flex-1">A module set
+        <select name="module_set_id" class="{{ input }}" {% if not project.module_sets %}disabled{% endif %} onchange="this.form.modules_mode.value = 'set'">
+          {% for m in project.module_sets %}<option value="{{ m.id }}" {% if m.id == branch.module_set_id %}selected{% endif %}>{{ m.name }} ({{ m.modules }})</option>{% else %}<option value="">No module sets yet</option>{% endfor %}
+        </select>
+        <a href="/projects/{{ project.id }}?tab=modules" class="mt-1 inline-block text-xs text-indigo-600 hover:underline">Manage module sets</a></span></label>
+    <label class="mt-2 flex items-start gap-2 text-sm"><input type="radio" name="modules_mode" value="custom" {% if mode == 'custom' %}checked{% endif %} class="mt-1">
+      <span class="flex-1">Custom list
+        <input name="modules_override" value="{{ branch.modules_override or '' }}" placeholder="e.g. payroll_zm, payroll_reports" class="{{ input }}" oninput="this.form.modules_mode.value = 'custom'">
+        {{ field_error(errors, 'modules_override') }}</span></label>
+    <p class="mt-3 text-xs text-gray-500">Odoo installs the dependencies of these modules itself; a missing dependency stops the build with its name before Odoo runs.
+      <button type="button" class="text-indigo-600 hover:underline" hx-post="/branches/{{ branch.id }}/plan" hx-target="#branch-plan" hx-swap="innerHTML">Preview the current plan</button></p>
+    <div id="branch-plan" class="mt-2"></div>
+  </fieldset>
+  </div>
+  {% if project.dependencies %}
+  <div data-tab-panel="bset:deps" class="space-y-5">
+  <fieldset class="rounded-md border border-gray-200 p-4">
+    <legend class="px-1 text-sm font-medium">Dependency branches</legend>
+    <p class="mb-3 text-xs text-gray-500">Override the branch of a dependency for this branch only, e.g. a matching feature branch. “Project default” follows the mapping on the project's
+      <a class="text-indigo-600 hover:underline" href="/projects/{{ project.id }}?tab=deps">Dependencies</a> tab for Odoo {{ branch.effective_version }}.</p>
+    <div class="space-y-3">
+    {% for d in project.dependencies %}
+      <label class="block text-sm font-medium"><span class="font-mono">{{ d.root_module_name }}</span>
+        <span class="font-normal text-gray-500">· {{ github_base(d.repo_url) or d.repo_url }}</span>
+        {% with dep=d, names=None, load_error=None, current=(branch.dependency_branches or {}).get(d.id|string, ''), default=d.branch_for(branch.effective_version) %}
+        {% include "_dep_override_select.html" %}
+        {% endwith %}
+        {% set r = resolved.get(d.id) %}
+        {% if r %}<span class="mt-0.5 block text-xs font-normal text-gray-500">Builds now use <code>{{ r.branch }}</code> ({{ {'branch': 'branch override', 'project': 'project mapping', 'default': 'branch named after the version'}[r.source] }}).</span>{% endif %}
+      </label>
+    {% endfor %}
+    </div>
+  </fieldset>
+    </div>
+  {% endif %}
+  <div class="mt-5 flex items-center gap-3 border-t border-gray-100 pt-4">
+    <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
+    <a href="/branches/{{ branch.id }}" class="text-sm text-gray-600 hover:underline">Cancel</a>
+  </div>
+</form>
+{% endblock %}
