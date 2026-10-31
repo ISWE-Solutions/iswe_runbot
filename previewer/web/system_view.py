@@ -1,6 +1,7 @@
 """System page data: worker heartbeat (disk, Docker, preview resources, scheduler), settings
 groups and validation. The worker writes DATA_DIR/worker.heartbeat; any key may be missing."""
 import json
+import re
 import time
 
 from sqlalchemy.orm import Session
@@ -10,6 +11,24 @@ from ..config import get_settings
 from ..db import SessionLocal
 
 HEARTBEAT_STALE_SECONDS = 60
+
+GUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+GH_CLIENT_RE = re.compile(r"^[A-Za-z0-9._-]{1,100}$")
+GH_ORG_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$")
+# provider -> (key, label, problem when the value does not match, pattern)
+SIGNIN_FIELDS: dict[str, list[tuple[str, str, str, re.Pattern]]] = {
+    "microsoft": [
+        ("microsoft_tenant_id", "Tenant ID",
+         "Must be the Directory (tenant) ID, a GUID, not a domain", GUID_RE),
+        ("microsoft_client_id", "Client ID", "Must be the Application (client) ID, a GUID", GUID_RE),
+    ],
+    "github": [
+        ("github_client_id", "Client ID", "Must be the OAuth App's Client ID (letters, digits, dots)",
+         GH_CLIENT_RE),
+        ("github_signin_org", "Organisation", "A GitHub organisation name, like ISWE-Solutions", GH_ORG_RE),
+    ],
+}
+SECRET_MAX = 500
 
 # (key, label, kind, help); kinds: int, percent, float, memory, bool, secret
 GROUPS: list[tuple[str, list[tuple[str, str, str, str]]]] = [
@@ -125,6 +144,61 @@ def validate(form, current: dict[str, str]) -> tuple[dict[str, str], dict[str, s
         if problem:
             errors["max_running_previews"] = problem
     return values, errors
+
+
+def signin(s: Session) -> dict:
+    """System > Sign-in: per provider its status, callback URL, field values and where each
+    value comes from ("db", "env", "default" or ""). Never contains a secret."""
+    from . import sso
+    c = get_settings()
+    v = sso.effective(s)
+    out = {}
+    for provider, fields in SIGNIN_FIELDS.items():
+        rows = {}
+        for key, label, _, _ in fields:
+            saved = (appsettings.stored(s, key) or "").strip()
+            env = (getattr(c, key) or "").strip()
+            source = "db" if saved else ("default" if env and env == type(c).model_fields[key].default
+                                         else "env" if env else "")
+            rows[key] = {"label": label, "value": saved or env, "source": source}
+        secret_saved = bool(appsettings.stored(s, f"{provider}_client_secret_enc"))
+        need = sso.missing(provider, v)
+        out[provider] = {
+            "label": sso.LABELS[provider], "ready": not need, "missing": need,
+            "redirect_uri": sso.redirect_uri(provider), "fields": rows,
+            "secret_saved": secret_saved, "secret_env": bool(getattr(c, f"{provider}_client_secret")),
+        }
+    return out
+
+
+def save_signin(s: Session, provider: str, form) -> dict[str, str]:
+    """Validate and store one provider's System > Sign-in form; returns {key: error}. A blank
+    field (or the .env value itself) removes the saved value so .env applies; a blank secret
+    keeps the saved one."""
+    from ..security import encrypt
+    c = get_settings()
+    values, errors = {}, {}
+    for key, _, problem, pattern in SIGNIN_FIELDS[provider]:
+        raw = (form.get(key) or "").strip()
+        if raw and not pattern.match(raw):
+            errors[key] = problem
+        values[key] = raw
+    secret_key = f"{provider}_client_secret"
+    secret = (form.get(secret_key) or "").strip()
+    if len(secret) > SECRET_MAX or any(ch.isspace() for ch in secret):
+        errors[secret_key] = "Paste the secret's Value exactly (no spaces)"
+    if errors:
+        return errors
+    for key, raw in values.items():
+        if raw and raw != (getattr(c, key) or "").strip():
+            appsettings.put(s, key, raw)
+        else:
+            appsettings.clear(s, key)
+    if form.get(f"{secret_key}_clear") in ("on", "1", "true"):
+        appsettings.clear(s, f"{secret_key}_enc")
+    elif secret:
+        appsettings.put(s, f"{secret_key}_enc", encrypt(secret))
+    return {}
 
 
 def host_memory() -> int | None:

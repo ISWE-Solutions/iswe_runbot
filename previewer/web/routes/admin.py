@@ -232,11 +232,12 @@ def update_user(uid: int, request: Request, active: str = Form(""),
 
 # ---------- system ----------
 
-SYSTEM_TABS = ("previews", "queue", "tasks", "templates", "settings", "jobs")
+SYSTEM_TABS = ("previews", "queue", "tasks", "templates", "settings", "sign-in", "jobs")
 
 
 def _system_ctx(s: Session, errors: dict | None = None, form_values: dict | None = None, *,
-                tab: str = "previews", page: int = 1, jtype: str = "", jstatus: str = "") -> dict:
+                tab: str = "previews", page: int = 1, jtype: str = "", jstatus: str = "",
+                signin_errors: dict | None = None, signin_form: dict | None = None) -> dict:
     from datetime import datetime, timezone
     builds = dict(s.execute(select(Build.status, func.count()).group_by(Build.status)).all())
     queue = s.scalars(select(Job).where(Job.status.in_(("queued", "running"))).order_by(Job.id)).all()
@@ -280,6 +281,8 @@ def _system_ctx(s: Session, errors: dict | None = None, form_values: dict | None
         "slack_set": bool(current.get("slack_webhook_url_enc")),
         "errors": errors or {},
         "disk_warning": system_view.disk_warning(s),
+        "signin": system_view.signin(s) if tab == "sign-in" else {},
+        "signin_errors": signin_errors or {}, "signin_form": signin_form or {},
     }
 
 
@@ -327,3 +330,28 @@ def slack_test(request: Request, s: Session = Depends(get_db), user: User = Depe
     if r.status_code >= 300:
         return f'<p class="text-sm text-red-700">Slack answered {r.status_code}: {escape(r.text[:200])}</p>'
     return '<p class="text-sm text-green-700">✓ Sent. Check the Slack channel.</p>'
+
+
+@router.post("/system/sign-in/{provider}")
+async def save_sign_in(provider: str, request: Request, s: Session = Depends(get_db),
+                       user: User = Depends(current_user)):
+    from .. import sso
+    if provider not in system_view.SIGNIN_FIELDS:
+        raise HTTPException(404)
+    form = await request.form()
+    label = sso.LABELS[provider]
+    errors = system_view.save_signin(s, provider, form)
+    if errors:
+        s.rollback()
+        typed = {k: str(form.get(k) or "") for k, *_ in system_view.SIGNIN_FIELDS[provider]}
+        flash(request, f"{label} sign-in not saved: check the highlighted fields.", "error")
+        return render(request, "admin_system.html",
+                      _system_ctx(s, tab="sign-in", signin_errors=errors, signin_form=typed),
+                      status_code=400)
+    s.commit()
+    need = sso.missing(provider, sso.effective(s))
+    if need:
+        flash(request, f"{label} sign-in saved. Still needed: {', '.join(need)}.", "info")
+    else:
+        flash(request, f"{label} sign-in saved and ready: the login page shows the button now.", "success")
+    return RedirectResponse("/admin/system?tab=sign-in", status_code=303)

@@ -52,7 +52,7 @@
 <div class="mt-6">
 {{ tabs([('previews', 'Previews', previews|length), ('queue', 'Build queue', queue|length),
          ('tasks', 'Scheduled tasks', failed_tasks or none, 'alert'), ('templates', 'Base databases', templates|length),
-         ('settings', 'Settings'), ('jobs', 'Recent jobs')], tab, '/admin/system', 'System sections') }}
+         ('settings', 'Settings'), ('sign-in', 'Sign-in'), ('jobs', 'Recent jobs')], tab, '/admin/system', 'System sections') }}
 </div>
 
 {% if tab == 'previews' %}
@@ -165,6 +165,98 @@
   </div>
 </form>
 
+{% elif tab == 'sign-in' %}
+{% set input = "mt-1 block w-full rounded-md border px-3 py-1.5 text-sm" %}
+{% macro source_note(src) -%}
+{% if src == 'env' %}<span class="ml-1 text-xs text-gray-500" data-source="env">· from server .env</span>
+{% elif src == 'default' %}<span class="ml-1 text-xs text-gray-500" data-source="default">· default</span>{% endif %}
+{%- endmacro %}
+{% macro text_field(p, key, id, help, mono=true) -%}
+{% set row = p.fields[key] %}
+<div class="text-sm">
+  <label for="{{ id }}" class="font-medium">{{ row.label }}</label>{{ source_note(row.source) }}
+  <input id="{{ id }}" name="{{ key }}" value="{{ signin_form.get(key, row.value) }}" autocomplete="off" spellcheck="false"
+         class="{{ input }} {{ 'font-mono' if mono }} {{ 'border-red-400' if signin_errors.get(key) else 'border-gray-300' }}">
+  {% if signin_errors.get(key) %}<p class="mt-1 text-xs text-red-700" data-field-error>{{ signin_errors[key] }}</p>{% endif %}
+  {% if help %}<p class="mt-1 text-xs text-gray-500">{{ help }}</p>{% endif %}
+</div>
+{%- endmacro %}
+{% macro secret_field(p, provider, help) -%}
+{% set key = provider ~ '_client_secret' %}
+<div class="text-sm">
+  <label for="{{ provider }}-secret" class="font-medium">Client secret</label>
+  {% if p.secret_saved %}<span class="ml-1 text-xs text-green-700" data-secret="saved">· Saved (encrypted)</span>
+  {% elif p.secret_env %}<span class="ml-1 text-xs text-gray-500" data-source="env">· from server .env</span>
+  {% else %}<span class="ml-1 text-xs text-gray-500">· not set</span>{% endif %}
+  <input id="{{ provider }}-secret" type="password" name="{{ key }}" autocomplete="new-password" spellcheck="false"
+         placeholder="{{ 'Blank keeps the current secret' if p.secret_saved or p.secret_env else 'Paste the secret Value' }}"
+         class="{{ input }} font-mono {{ 'border-red-400' if signin_errors.get(key) else 'border-gray-300' }}">
+  {% if signin_errors.get(key) %}<p class="mt-1 text-xs text-red-700" data-field-error>{{ signin_errors[key] }}</p>{% endif %}
+  <p class="mt-1 text-xs text-gray-500">{{ help }}</p>
+  {% if p.secret_saved %}<label class="mt-2 flex items-center gap-1 text-xs"><input type="checkbox" name="{{ key }}_clear">
+    Remove the saved secret{% if p.secret_env %} (the server .env one applies again){% endif %}</label>{% endif %}
+</div>
+{%- endmacro %}
+{% macro card_head(p, provider, blurb) -%}
+<div class="flex flex-wrap items-center justify-between gap-2">
+  <h2 class="text-base font-semibold">{{ p.label }}</h2>
+  {% if p.ready %}<span class="inline-flex rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800" data-status="{{ provider }}">Ready</span>
+  {% else %}<span class="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700" data-status="{{ provider }}">Not set up</span>{% endif %}
+</div>
+<p class="text-sm text-gray-600">{{ blurb }}{% if not p.ready %} <span class="text-amber-700">Still needed: {{ p.missing|join(', ') }}.</span>{% endif %}</p>
+<div class="text-sm">
+  <p class="font-medium">{{ 'Redirect URI' if provider == 'microsoft' else 'Authorization callback URL' }} to register</p>
+  <code class="mt-1 block select-all break-all rounded-md border border-gray-300 bg-gray-50 px-3 py-1.5 font-mono text-xs" data-redirect="{{ provider }}">{{ p.redirect_uri }}</code>
+  <p class="mt-1 text-xs text-gray-500">Click it to select, then copy it exactly; the provider refuses any other address.</p>
+</div>
+{%- endmacro %}
+
+<p class="mb-4 text-sm text-gray-600">Let people sign in with their Microsoft or GitHub account. A save applies at once, no restart.
+  A blank field uses the server <code>.env</code> value.</p>
+<div class="grid gap-6 lg:grid-cols-2">
+  {% set ms = signin.microsoft %}
+  <form method="post" action="/admin/system/sign-in/microsoft" class="{{ card }} min-w-0 space-y-4" data-signin="microsoft">
+    {{ csrf() }}
+    {{ card_head(ms, 'microsoft', 'Anyone in your Microsoft Entra tenant can sign in.') }}
+    {{ text_field(ms, 'microsoft_tenant_id', 'microsoft-tenant', 'The Directory (tenant) ID, a GUID, not a domain. On the app registration Overview page.') }}
+    {{ text_field(ms, 'microsoft_client_id', 'microsoft-client', 'The Application (client) ID, a GUID, on the same page.') }}
+    {{ secret_field(ms, 'microsoft', "The secret's Value (not its ID). Stored encrypted; blank keeps the current one.") }}
+    <details class="text-sm" {% if not ms.ready %}open{% endif %}>
+      <summary class="cursor-pointer font-medium">How to set it up</summary>
+      <ol class="mt-2 space-y-1 pl-5 text-gray-600" style="list-style-type: decimal">
+        <li>Entra admin center → App registrations → New registration.</li>
+        <li>Supported account types: this organisational directory only (single tenant).</li>
+        <li>Redirect URI: platform Web, the address above.</li>
+        <li>Certificates &amp; secrets → New client secret; paste its Value here.</li>
+        <li>Copy the Directory (tenant) ID and Application (client) ID from Overview.</li>
+      </ol>
+    </details>
+    <div class="flex items-center gap-3 border-t border-gray-200 pt-4">
+      <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save Microsoft</button>
+    </div>
+  </form>
+
+  {% set gh = signin.github %}
+  <form method="post" action="/admin/system/sign-in/github" class="{{ card }} min-w-0 space-y-4" data-signin="github">
+    {{ csrf() }}
+    {{ card_head(gh, 'github', 'Active members of the organisation below can sign in with their primary verified email.') }}
+    {{ text_field(gh, 'github_client_id', 'github-client', 'From the OAuth App page. Not the Git credentials used to pull code.') }}
+    {{ secret_field(gh, 'github', 'Stored encrypted; blank keeps the current one.') }}
+    {{ text_field(gh, 'github_signin_org', 'github-org', 'Only its active members can sign in. Blank uses the server .env value (default ISWE-Solutions).', mono=false) }}
+    <details class="text-sm" {% if not gh.ready %}open{% endif %}>
+      <summary class="cursor-pointer font-medium">How to set it up</summary>
+      <ol class="mt-2 space-y-1 pl-5 text-gray-600" style="list-style-type: decimal">
+        <li>GitHub organisation → Settings → Developer settings → OAuth Apps → New OAuth App.</li>
+        <li>Homepage URL: <span class="break-all">{{ settings.dashboard_url }}</span>; authorization callback URL: the address above.</li>
+        <li>Register the app, then Generate a new client secret.</li>
+        <li>Paste the Client ID and the secret here.</li>
+      </ol>
+    </details>
+    <div class="flex items-center gap-3 border-t border-gray-200 pt-4">
+      <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save GitHub</button>
+    </div>
+  </form>
+</div>
 
 {% elif tab == 'jobs' %}
 <form method="get" class="mb-3 flex flex-wrap gap-2">

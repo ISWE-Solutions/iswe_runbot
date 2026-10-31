@@ -31,12 +31,26 @@ def defaults() -> dict[str, str]:
         "use_db_templates": "1",
         # Fernet-encrypted Slack incoming-webhook URL; blank = no Slack messages
         "slack_webhook_url_enc": "",
+        # Sign in with Microsoft / GitHub (System > Sign-in). No row or a blank row = the .env
+        # value; the secrets are Fernet-encrypted here and plain in .env (web/sso.effective).
+        "microsoft_tenant_id": c.microsoft_tenant_id,
+        "microsoft_client_id": c.microsoft_client_id,
+        "microsoft_client_secret_enc": "",
+        "github_client_id": c.github_client_id,
+        "github_client_secret_enc": "",
+        "github_signin_org": c.github_signin_org,
     }
 
 
 def get(s: Session, key: str) -> str:
     row = s.get(Setting, key)
     return row.value if row else defaults()[key]
+
+
+def stored(s: Session, key: str) -> str | None:
+    """The saved value, or None when the key has no row (the .env default applies)."""
+    row = s.get(Setting, key)
+    return row.value if row else None
 
 
 def get_int(s: Session, key: str) -> int:
@@ -51,3 +65,10 @@ def put(s: Session, key: str, value: str) -> None:
         row.value = value
     else:
         s.add(Setting(key=key, value=value))
+
+
+def clear(s: Session, key: str) -> None:
+    """Remove the saved value so the .env default applies again."""
+    row = s.get(Setting, key)
+    if row:
+        s.delete(row)

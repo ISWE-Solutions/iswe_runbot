@@ -124,6 +124,8 @@ Dashboard: http://preview.localhost (browsers and curl resolve `*.localhost` to 
   logging of secrets or tokens) + `/auth/{microsoft,github}[/callback]` in `routes/auth.py`; users
   matched by email (case-insensitive), created with `password_hash=""` (never matches);
   `Settings.https` (`TLS_ENABLED or PUBLIC_HTTPS`) drives URLs and Secure cookies, Traefik only TLS_ENABLED.
+  Provider settings: always `sso.effective()` per request (System > Sign-in rows in `settings`, secrets
+  `*_client_secret_enc`, blank/no row = .env); forms and validation in `system_view.signin/save_signin`.
 - Build status values: queued, building, running, sleeping, failed, stopped, removed.
 - Python 3.12, SQLAlchemy 2.0 style (`select()`), type hints, small modules, no comments
   that restate the code.

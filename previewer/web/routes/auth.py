@@ -36,9 +36,9 @@ def _safe_next(nxt: str | None) -> str:
 
 
 def _login_page(request: Request, ctx: dict, status_code: int = 200):
-    c = get_settings()
-    ctx = {"microsoft_ready": sso.configured("microsoft", c), "github_ready": sso.configured("github", c),
-           "sso_missing": sso.not_set_up_message(c), **ctx}
+    v = sso.effective()
+    ctx = {"microsoft_ready": sso.configured("microsoft", v), "github_ready": sso.configured("github", v),
+           "sso_missing": sso.not_set_up_message(v), **ctx}
     return render(request, "login.html", ctx, status_code=status_code)
 
 
@@ -87,13 +87,14 @@ def _back_to_login(request: Request, message: str, nxt: str | None = None) -> Re
 
 
 def _start(request: Request, provider: str, nxt: str | None) -> RedirectResponse:
-    if not sso.configured(provider):
+    v = sso.effective()
+    if not sso.configured(provider, v):
         return _back_to_login(request, f"{sso.LABELS[provider]} sign-in is not set up yet.", nxt)
     state, nonce = sso.new_state(), sso.new_state()
     request.session[SSO_SESSION_KEY] = {"provider": provider, "state": state, "nonce": nonce,
                                         "next": _safe_next(nxt)}
-    url = (sso.microsoft_authorize_url(state, nonce) if provider == "microsoft"
-           else sso.github_authorize_url(state))
+    url = (sso.microsoft_authorize_url(state, nonce, v) if provider == "microsoft"
+           else sso.github_authorize_url(state, v))
     return RedirectResponse(url, status_code=303)
 
 
@@ -103,7 +104,8 @@ def _finish(request: Request, s: Session, provider: str, code: str | None, state
     pending = request.session.pop(SSO_SESSION_KEY, None)
     pending = pending if isinstance(pending, dict) and pending.get("provider") == provider else None
     nxt = pending.get("next") if pending else None
-    if not sso.configured(provider):
+    v = sso.effective(s)
+    if not sso.configured(provider, v):
         return _back_to_login(request, f"{label} sign-in is not set up yet.", nxt)
     if error:
         log.warning("%s sign-in: the provider returned %s", label, error[:100])
@@ -115,8 +117,8 @@ def _finish(request: Request, s: Session, provider: str, code: str | None, state
     if not code:
         return _back_to_login(request, f"{label} did not return a sign-in code. Please try again.", nxt)
     try:
-        who = (sso.microsoft_identity(code, str(pending.get("nonce", ""))) if provider == "microsoft"
-               else sso.github_identity(code))
+        who = (sso.microsoft_identity(code, str(pending.get("nonce", "")), v) if provider == "microsoft"
+               else sso.github_identity(code, v))
     except sso.SSOError as e:
         log.warning("%s sign-in refused: %s", label, e)
         return _back_to_login(request, str(e), nxt)

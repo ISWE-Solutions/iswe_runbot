@@ -132,7 +132,14 @@ and marks its cookies Secure.
 The Previewer login page shows "Sign in with Microsoft" and "Sign in with GitHub" above the
 email and password form. A provider that is not set up shows a greyed-out button. People who
 sign in this way for the first time get an account with no password (disable it on the Users
-page to lock them out). Restart the app after changing these settings.
+page to lock them out).
+
+Set both providers up while signed in on **System > Sign-in**: each card shows whether it is
+ready, the exact redirect / callback URL to register (`https://` when `PUBLIC_HTTPS` or
+`TLS_ENABLED` is on) and the fields below. A save applies at once, without a restart. Client
+secrets are stored encrypted with `ENCRYPTION_KEY` and never shown again; a blank secret keeps
+the saved one, and *Remove* clears it. The `.env` variables named below are the fallback: a
+field left blank uses its `.env` value, marked "from server .env" on the page.
 
 **Microsoft (Entra ID):** anyone in your tenant can sign in.
 
@@ -140,19 +147,20 @@ page to lock them out). Restart the app after changing these settings.
    *Accounts in this organizational directory only* (single tenant). Redirect URI: platform
    *Web*, `https://<DOMAIN>/auth/microsoft/callback`.
 2. Certificates & secrets > New client secret. Copy its *Value*.
-3. In `.env`: `MICROSOFT_TENANT_ID` (Directory (tenant) ID, the GUID), `MICROSOFT_CLIENT_ID`
-   (Application (client) ID) and `MICROSOFT_CLIENT_SECRET`. The default delegated permissions
+3. On System > Sign-in (or in `.env`: `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_ID`,
+   `MICROSOFT_CLIENT_SECRET`): the Directory (tenant) ID (a GUID, not a domain), the
+   Application (client) ID and the secret's Value. The default delegated permissions
    (`openid`, `email`, `profile`) are enough.
 
-**GitHub (OAuth App):** only active members of `GITHUB_SIGNIN_ORG` (default `ISWE-Solutions`)
-can sign in, using their primary verified email address.
+**GitHub (OAuth App):** only active members of the organisation set on System > Sign-in
+(fallback `GITHUB_SIGNIN_ORG`, default `ISWE-Solutions`) can sign in, using their primary verified email address.
 
 1. ISWE-Solutions organisation > Settings > Developer settings > OAuth Apps > New OAuth App.
    Homepage URL `https://<DOMAIN>`, authorization callback URL
    `https://<DOMAIN>/auth/github/callback`.
 2. Generate a new client secret.
-3. In `.env`: `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. These are unrelated to
-   `GITHUB_USERNAME` / `GITHUB_TOKEN`, which pull code.
+3. On System > Sign-in (or in `.env`: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`): the Client ID
+   and the secret. These are unrelated to `GITHUB_USERNAME` / `GITHUB_TOKEN`, which pull code.
 
 ## Operations
 
