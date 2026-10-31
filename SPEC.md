@@ -100,7 +100,7 @@ Changing a branch's Odoo version always triggers a new build on a fresh database
 
 A build turns one commit into a running preview in seven steps, and the previous preview stays up until the new one is healthy.
 
-Triggers: a GitHub webhook (`push`, `create`, `delete`) at `/api/webhooks/github` with its HMAC signature verified; polling every 5 minutes as a fallback; the Rebuild button; a change of Odoo version or branch settings.
+Triggers: a GitHub webhook (`push`, `create`, `delete`) at `/api/webhooks/github/<project id>` with its HMAC signature verified before the body is parsed; polling every 5 minutes as a fallback; the Rebuild button; a change of Odoo version or branch settings.
 
 1. **Fetch code.** Keep one bare git mirror per project in `repos/`. Fetch, then export the commit to `builds/<build-id>/src`. Fetch any `extra_addons_repos` the same way (default branch name = the Odoo version, e.g. `18.0`).
 2. **Prepare image.** If the repo has `requirements.txt`, build a small image `FROM odoo:<version>` that installs it, tagged by a hash of version + requirements file so it is reused. Otherwise use `odoo:<version>` as is. Code is mounted read-only, never baked into the image.
@@ -180,7 +180,7 @@ Only logged-in team members can reach the dashboard and the previews, and secret
 - **GitHub tokens:** fine-grained, read-only (contents and metadata). Stored encrypted with a key from `.env` (Fernet).
 - **Webhooks:** reject any request whose HMAC signature does not match the project's webhook secret.
 - **Docker access:** only the build worker talks to the Docker socket directly. Traefik goes through the read-only socket proxy.
-- **Database:** Postgres is not exposed outside the Docker network. Each preview sees only its own database (`--db-filter`, `--no-database-list`) and has a random master password, so the Odoo database manager cannot be used.
+- **Database:** Postgres is not exposed outside the Docker network. Each build connects as its own role (`pv_b<build id>`, no CREATEDB) that owns only its database; `CONNECT` on every preview database and the app database is revoked from `PUBLIC`. Each preview also sees only its own database in Odoo (`--db-filter`, `--no-database-list`) and has a random master password, so the Odoo database manager cannot be used.
 - **Server firewall:** open ports 22, 80 and 443 only.
 - **Data:** previews use fresh databases with sample data. Copies of real client databases are out of scope until an anonymisation step exists (Phase 3).
 
@@ -188,7 +188,7 @@ Only logged-in team members can reach the dashboard and the previews, and secret
 
 The whole system installs on one Ubuntu 24.04 server with 8 CPU cores, 32 GB RAM and a 300 GB SSD, using one `docker-compose.yml`.
 
-- **Services in Compose:** `traefik`, `socket-proxy`, `postgres`, `app` (backend API), `worker` (build worker). Preview containers are created by the worker on the same Docker network, not listed in Compose.
+- **Services in Compose:** `traefik`, `socket-proxy`, `postgres`, `app` (backend API), `worker` (build worker). Preview containers are created by the worker on a separate `previews` network (shared only with Traefik, Postgres and the worker), not listed in Compose.
 - **DNS:** A records for `preview.<domain>` and `*.preview.<domain>` pointing to the server.
 - **`.env` keys (at least):** `DOMAIN`, `ACME_EMAIL`, `DNS_PROVIDER`, `DNS_API_TOKEN`, `SECRET_KEY`, `ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, `MAX_CONCURRENT_BUILDS`, `MAX_RUNNING_PREVIEWS`, `IDLE_SLEEP_HOURS`, `PREVIEW_MEMORY_LIMIT`, `ADMIN_EMAIL`.
 - **Install:** a `scripts/install.sh` that checks Docker is installed, creates `/srv/previewer/` folders, runs database migrations, and creates the first admin user. The README walks through it step by step.

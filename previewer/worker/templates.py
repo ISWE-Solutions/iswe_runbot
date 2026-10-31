@@ -3,6 +3,10 @@ commit with base (+ web_enterprise) installed. Builds copy it (CREATE DATABASE .
 with its filestore and only install their own modules, instead of installing Odoo from scratch.
 
 A template that cannot be made never fails a build: the build falls back to a full install.
+
+Each template is made by its own Postgres role (`pvt_<key hash>`) that loses its login once
+the template is ready; the template database itself belongs to the app superuser. A copy's
+tables are handed to the build's own role (pg.create_from_template).
 """
 import hashlib
 import logging
@@ -100,7 +104,7 @@ def _claim(key: str, spec):
     with session_scope() as s:
         t = s.scalars(select(DbTemplate).where(DbTemplate.key == key)).first()
         now = utcnow()
-        if t and t.status == "ready" and now - t.created_at < MAX_AGE and pg.database_exists(t.db_name):
+        if t and t.status == "ready" and now - t.created_at < MAX_AGE and _current(t.db_name):
             t.last_used_at = now
             s.flush()
             s.expunge(t)
@@ -120,6 +124,16 @@ def _claim(key: str, spec):
                          db_name=template_db(key), modules=",".join(base_modules(spec.edition)),
                          status="building"))
         return "make"
+
+
+def _current(db: str) -> bool:
+    """The template database exists and is of the current kind (owned by the app superuser;
+    older ones belonged to the shared preview role and are remade)."""
+    return pg.database_owner(db) == get_settings().postgres_user
+
+
+def maker_role(key: str) -> str:
+    return pg.template_role(key_hash(key))
 
 
 def _wait_for(key: str, blog: BuildLog) -> DbTemplate | None:
@@ -143,13 +157,16 @@ def _make(key: str, spec, blog: BuildLog) -> DbTemplate | None:
     label = f"{spec.version} {spec.edition.capitalize()}{' with demo' if spec.demo else ''}"
     blog.step(f"Making database template {label} ({', '.join(mods)}); later builds reuse it")
     started = time.monotonic()
+    maker, password = maker_role(key), random_secret()
     try:
         pg.drop_database(db)
+        pg.ensure_role(maker, password)
+        pg.create_template_database(db, maker)
         shutil.rmtree(tdir, ignore_errors=True)
         (tdir / "data").mkdir(parents=True)
         _chown(tdir / "data")
         (tdir / "odoo.conf").write_text(docker_ops.render_conf(
-            db_name=db, admin_passwd=random_secret(),
+            db_name=db, admin_passwd=random_secret(), db_user=maker, db_password=password,
             addons=docker_ops.addons_path(0, bool(spec.enterprise_dir), with_src=False)))
         mounts = docker_ops.template_mounts(tdir / "odoo.conf", tdir / "data",
                                             Path(spec.enterprise_dir) if spec.enterprise_dir else None)
@@ -162,6 +179,7 @@ def _make(key: str, spec, blog: BuildLog) -> DbTemplate | None:
         bad = [m for m in mods if states.get(m) != "installed"]
         if rc != 0 or bad:
             raise RuntimeError(f"exit code {rc}" if rc != 0 else f"not installed: {', '.join(bad)}")
+        pg.seal_template(db, maker)
     except Exception as e:  # noqa: BLE001 — a template failure only costs the speed-up
         _mark(key, "failed", f"{type(e).__name__}: {e}")
         _drop_files(db, key)
@@ -185,10 +203,10 @@ def _mark(key: str, status: str, error: str | None = None) -> None:
             t.status, t.error = status, error
 
 
-def copy_into(t: DbTemplate, db_name: str, filestore: Path) -> None:
-    """New build database from the template, with its own identity and a copy of its filestore
-    (Odoo keeps compiled assets there)."""
-    pg.create_from_template(db_name, t.db_name, get_settings().odoo_db_user)
+def copy_into(t: DbTemplate, db_name: str, filestore: Path, owner: str) -> None:
+    """New build database from the template, owned (tables included) by the build's role,
+    with its own identity and a copy of its filestore (Odoo keeps compiled assets there)."""
+    pg.create_from_template(db_name, t.db_name, owner, template_owner=maker_role(t.key))
     pg.reset_database_identity(db_name)
     src = template_dir(t.key) / "data" / "filestore" / t.db_name
     if src.exists():
@@ -217,6 +235,7 @@ def _size_mb(db: str, tdir: Path) -> int:
 def _drop_files(db: str, key: str) -> None:
     try:
         pg.drop_database(db)
+        pg.drop_role(maker_role(key))
     except Exception:  # noqa: BLE001
         log.exception("could not drop template database %s", db)
     shutil.rmtree(template_dir(key), ignore_errors=True)

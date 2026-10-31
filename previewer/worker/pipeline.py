@@ -11,7 +11,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from .. import appsettings, credentials, deps, diagnose, gitmirror, modules as modplan
+from .. import appsettings, credentials, deps, diagnose, gitmirror, modules as modplan, testresults
 from ..config import get_settings
 from ..db import session_scope
 from ..models import Build, OdooVersion, utcnow
@@ -28,9 +28,10 @@ class BuildFailed(Exception):
     "odoo" (Odoo failed; its log is diagnosed), "health" (preview never came up)."""
 
     def __init__(self, message: str, *, kind: str = "setup", hint: str = "",
-                 signals: "diagnose.Signals | None" = None):
+                 signals: "diagnose.Signals | None" = None,
+                 finding: "diagnose.Finding | None" = None):
         super().__init__(message)
-        self.kind, self.hint, self.signals = kind, hint, signals
+        self.kind, self.hint, self.signals, self.finding = kind, hint, signals, finding
 
 
 def access_failure(what: str, repo_url: str, account: str) -> BuildFailed:
@@ -109,6 +110,10 @@ class BuildSpec:
     root_is_module: bool = False     # set when the project repo is exported
     demo: bool = False
     enterprise_dir: str = ""         # local Enterprise checkout, set when fetched
+    run_tests: bool = False          # branch.effective_run_tests (never for plain previews)
+    test_tags: str = ""              # Project.test_tags; blank = own modules
+    test_failure_mode: str = "warn"  # "warn" | "fail"
+    own_modules: list[str] = field(default_factory=list)  # project/parts modules being installed
 
 
 def build_dir(build_id: int) -> Path:
@@ -188,8 +193,20 @@ def find_requirements(src: Path) -> Path | None:
     return None
 
 
+def test_tags(spec: BuildSpec) -> str:
+    """--test-tags value: the project's own setting, else "/<module>" per own module installed."""
+    return spec.test_tags.strip() or ",".join(f"/{m}" for m in spec.own_modules)
+
+
+def tests_enabled(spec: BuildSpec) -> bool:
+    return spec.run_tests and not spec.plain and bool(test_tags(spec))
+
+
 def init_args(spec: BuildSpec) -> list[str]:
-    return ["-d", spec.db_name, "-i", ",".join(spec.modules), "--stop-after-init", *spec.demo_flags]
+    args = ["-d", spec.db_name, "-i", ",".join(spec.modules), "--stop-after-init", *spec.demo_flags]
+    if tests_enabled(spec):
+        args += ["--test-enable", "--test-tags", test_tags(spec)]
+    return args
 
 
 def load_spec(build_id: int) -> BuildSpec | None:
@@ -243,6 +260,9 @@ def load_spec(build_id: int) -> BuildSpec | None:
             enterprise_names_branch=names_src.branch if names_src else "",
             branch_name=branch.name,
             demo=demo,
+            run_tests=branch.effective_run_tests and not project.is_plain,
+            test_tags=project.test_tags or "",
+            test_failure_mode=project.test_failure_mode or "warn",
         )
 
 
@@ -333,8 +353,12 @@ def _prepare(spec: BuildSpec, blog: BuildLog):
     # 3. Find modules and plan the install
     _plan_install(spec, bdir, enterprise_dir, blog, version_image)
 
+    # The build's own Postgres role: owns only this build's database (worker/pg.py)
+    db_password = random_secret()
+    pg.ensure_role(pg.build_role(spec.build_id), db_password)
     (bdir / "odoo.conf").write_text(docker_ops.render_conf(
         db_name=spec.db_name, admin_passwd=random_secret(),
+        db_user=pg.build_role(spec.build_id), db_password=db_password,
         addons=docker_ops.addons_path(len(spec.deps), enterprise_dir is not None,
                                       with_src=not spec.combo)))
     fs = filestore_dir(spec.build_id)
@@ -410,6 +434,8 @@ def build_diagnosis(spec: BuildSpec | None, err: Exception, log_text: str) -> li
     """Findings for a failed build, most useful first (saved as Build.diagnosis)."""
     kind = getattr(err, "kind", "other" if not isinstance(err, gitmirror.GitError) else "setup")
     message = str(err) if isinstance(err, (BuildFailed, gitmirror.GitError)) else f"{type(err).__name__}: {err}"
+    if getattr(err, "finding", None) is not None:
+        return [err.finding]
     if kind == "missing_dependency":
         return [diagnose.Finding(
             "missing_dependency", "Missing module dependency", message,
@@ -420,6 +446,11 @@ def build_diagnosis(spec: BuildSpec | None, err: Exception, log_text: str) -> li
                                  _setup_hint(message))]
     signals = getattr(err, "signals", None) or diagnose.Signals(health_failed=kind == "health")
     found = diagnose.diagnose(log_text, diagnosis_mounts(spec) if spec else {}, signals)
+    if spec and tests_enabled(spec):
+        for f in found:
+            if f.kind == "timeout":
+                f.hint += (" Module tests are on and may need more time: raise the build time limit,"
+                           " or turn tests off for this branch.")
     if found:
         return found
     if kind == "other":
@@ -464,6 +495,7 @@ def _plan_install(spec: BuildSpec, bdir: Path, enterprise_dir: Path | None, blog
     plan = modplan.plan(spec.modules, manifests, core, sources)
     plan.top_level = modplan.top_level({m: manifests[m] for m in own})
     spec.install = plan.install
+    spec.own_modules = [m for m in plan.install if m in own]
     with session_scope() as s:
         s.get(Build, spec.build_id).install_plan = plan.as_dict()
     blog.step(plan_summary(plan))
@@ -547,7 +579,7 @@ def _from_template(spec: BuildSpec, blog: BuildLog) -> bool:
         return False
     started = time.monotonic()
     try:
-        templates.copy_into(t, spec.db_name, filestore_dir(spec.build_id))
+        templates.copy_into(t, spec.db_name, filestore_dir(spec.build_id), pg.build_role(spec.build_id))
     except Exception as e:  # noqa: BLE001 — fall back to a full install
         blog.step(f"Copying the database template failed ({e}); installing from scratch")
         pg.drop_database(spec.db_name)
@@ -558,23 +590,65 @@ def _from_template(spec: BuildSpec, blog: BuildLog) -> bool:
     return True
 
 
+def _save_tests(build_id: int, status: str | None, results: dict) -> None:
+    with session_scope() as s:
+        b = s.get(Build, build_id)
+        if b:
+            b.test_status, b.test_results = status, results
+
+
+def _record_tests(spec: BuildSpec) -> testresults.TestReport | None:
+    """Parse and save the module test results of this build (None when tests are off)."""
+    if not tests_enabled(spec):
+        _save_tests(spec.build_id, "skipped", {})
+        return None
+    report = testresults.parse(read_log(spec.build_id), diagnosis_mounts(spec))
+    _save_tests(spec.build_id, report.status, report.as_dict())
+    return report
+
+
+def _tests_finding(report: testresults.TestReport) -> diagnose.Finding:
+    first = report.failures[0] if report.failures else None
+    message = f"{first.test}: {first.message}" if first else report.headline
+    return diagnose.Finding(
+        "tests", f"Module tests failed: {report.headline}", message,
+        "Fix the failing test(s), or set 'When tests fail' to keep the preview running.",
+        module=first.module if first else None, file=first.file if first else None,
+        line=first.line if first else None, source=first.source if first else None,
+        url=first.url if first else None)
+
+
 def _init_database(spec: BuildSpec, mounts, blog: BuildLog) -> None:
-    # 4. Create database (from a template when one is available)
-    _from_template(spec, blog)
+    # 4. Create database (from a template when one is available). Created here, owned by the
+    # build's role, so that role never needs CREATEDB.
+    if not _from_template(spec, blog):
+        pg.create_empty_database(spec.db_name, pg.build_role(spec.build_id))
     blog.step(f"Creating database {spec.db_name}: odoo {' '.join(init_args(spec))}")
+    if tests_enabled(spec):
+        blog.step(f"Running tests: {test_tags(spec)}")
     outcome: dict = {}
     rc = docker_ops.run_init(image=spec.base_image, build_id=spec.build_id, args=init_args(spec),
                              mounts_=mounts, mem_limit=spec.build_mem_limit,
                              timeout_s=spec.timeout_s, log=blog, outcome=outcome)
+    report = _record_tests(spec)
+    tests_failed = report is not None and report.status == "failed"
+    if tests_failed and (rc == 0 or (not outcome.get("timed_out") and not outcome.get("oom")
+                                     and not _not_installed(spec))):
+        # Odoo exits 1 when tests fail although every module installed: a test failure.
+        if spec.test_failure_mode == "fail":
+            raise BuildFailed(f"Module tests failed: {report.headline}", kind="tests",
+                              finding=_tests_finding(report))
+        blog.step(f"Tests failed (warn mode): {report.headline} — preview still starts")
+        rc = 0  # the install itself succeeded; the module check below still runs
+    elif report is not None and report.ran:
+        blog.step(f"Tests: {report.headline}")
     if rc != 0:
         signals = diagnose.Signals(
             timed_out=bool(outcome.get("timed_out")), timeout_minutes=spec.timeout_s // 60,
             oom_killed=bool(outcome.get("oom")), memory_limit=spec.build_mem_limit,
             exit_code=outcome.get("exit_code", rc))
         raise BuildFailed(f"Module installation failed (exit code {rc})", kind="odoo", signals=signals)
-    expected = list(dict.fromkeys([*spec.modules, *spec.install]))
-    states = pg.module_states(spec.db_name, expected)
-    bad = {m: states.get(m, "not found") for m in expected if states.get(m) != "installed"}
+    bad = _not_installed(spec)
     if bad:
         reasons = modplan.odoo_dependency_errors(read_log(spec.build_id))
         raise BuildFailed("\n".join(reasons) if reasons else
@@ -582,23 +656,45 @@ def _init_database(spec: BuildSpec, mounts, blog: BuildLog) -> None:
                           kind="odoo")
 
 
+def _not_installed(spec: BuildSpec) -> dict[str, str]:
+    """Planned modules that did not end up installed: {module: state}."""
+    expected = list(dict.fromkeys([*spec.modules, *spec.install]))
+    states = pg.module_states(spec.db_name, expected)
+    return {m: states.get(m, "not found") for m in expected if states.get(m) != "installed"}
+
+
 def _start_and_check(spec: BuildSpec, mounts, blog: BuildLog, followers: "Followers") -> None:
     # 5. Start preview, 6. Health check
     name = container_name(spec.build_id)
+    from .automation import make_room
+    slept = make_room(starting=spec.build_id)
+    if slept:
+        blog.step(f"Put {len(slept)} idle preview(s) to sleep to stay within the running limit")
     blog.step(f"Starting preview {name} at {spec.host}")
     ctr = docker_ops.run_preview(image=spec.base_image, build_id=spec.build_id, branch_id=spec.branch_id,
                                  host=spec.host, db_name=spec.db_name, mounts_=mounts,
-                                 mem_limit=spec.mem_limit, cpus=spec.cpus)
+                                 mem_limit=spec.mem_limit, cpus=spec.cpus,
+                                 health_timeout_s=spec.health_timeout_s)
     with session_scope() as s:
         s.get(Build, spec.build_id).container_id = ctr.id
     followers.start(spec.build_id, from_start=True)
-    problem = docker_ops.wait_healthy(name, spec.health_timeout_s)
+    problem = wait_until_healthy(name, spec.health_timeout_s, blog)
     if problem:
         state = docker_ops.container_state(name)
         signals = diagnose.Signals(health_failed=True, oom_killed=bool(state.get("oom")),
                                    memory_limit=spec.mem_limit, exit_code=state.get("exit_code"))
         raise BuildFailed(f"Preview did not become healthy: {problem}", kind="health", signals=signals)
     blog.step("Preview is healthy")
+
+
+def wait_until_healthy(name: str, timeout_s: int, blog: BuildLog) -> str | None:
+    """The start-up check, with one more wait of the same length when Odoo is still running
+    but slow (rather than throwing away a fully installed database)."""
+    problem = docker_ops.wait_healthy(name, timeout_s)
+    if docker_ops.still_starting(name, problem):
+        blog.step(f"Odoo is still starting after {timeout_s}s; waiting up to {timeout_s}s more")
+        problem = docker_ops.wait_healthy(name, timeout_s)
+    return problem
 
 
 def _mark_running_and_swap(spec: BuildSpec, blog: BuildLog) -> None:
@@ -640,6 +736,7 @@ def teardown(build_id: int, db_name: str | None, keep_log: bool = True) -> None:
     docker_ops.remove_container(container_name(build_id))
     if db_name:
         pg.drop_database(db_name)
+    pg.drop_role(pg.build_role(build_id))
     shutil.rmtree(filestore_dir(build_id), ignore_errors=True)
     shutil.rmtree(build_dir(build_id), ignore_errors=True)
     if not keep_log:

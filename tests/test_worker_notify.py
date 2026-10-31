@@ -4,19 +4,22 @@ from previewer.security import encrypt
 from previewer.worker import notify
 
 
-def _build(s, *, post=True, kind="repo", status="running", diagnosis=None, previous=None):
+def _build(s, *, post=True, kind="repo", status="running", diagnosis=None, previous=None,
+           run_tests=False, test_status=None, test_results=None, previous_test_status=None):
     s.add(GithubCredential(name="Default", username="bot", token_enc=encrypt("tok"), is_default=True))
     p = Project(name="Payroll", slug="payroll", repo_url="https://github.com/acme/payroll_extension",
-                default_odoo_version="19.0", kind=kind, post_commit_status=post)
+                default_odoo_version="19.0", kind=kind, post_commit_status=post, run_tests=run_tests)
     br = Branch(project=p, name="v19", slug="v19", host="payroll-v19.preview.localhost",
                 last_commit_sha="c" * 40)
     s.add_all([p, br])
     s.flush()
     if previous:
-        s.add(Build(branch_id=br.id, commit_sha="b" * 40, odoo_version="19.0", status=previous))
+        s.add(Build(branch_id=br.id, commit_sha="b" * 40, odoo_version="19.0", status=previous,
+                    test_status=previous_test_status))
         s.flush()
     b = Build(branch_id=br.id, commit_sha="c" * 40, odoo_version="19.0", status=status,
-              host=br.host, diagnosis=diagnosis or [])
+              host=br.host, diagnosis=diagnosis or [], test_status=test_status,
+              test_results=test_results or {})
     s.add(b)
     s.commit()
     return b
@@ -91,3 +94,43 @@ def test_never_raises(s, monkeypatch):
     notify.build_event(999999, "failed")  # unknown build
     monkeypatch.setattr(notify, "_send", boom)
     notify.build_event(b.id, "failed")
+
+
+FAILED_TESTS = {"ran": True, "status": "failed", "headline": "1 failed and 1 error(s) of 6 tests"}
+
+
+def test_tests_get_their_own_commit_status(s, monkeypatch):
+    calls = _capture(monkeypatch)
+    b = _build(s, run_tests=True, test_status="failed", test_results=FAILED_TESTS)
+    notify.build_event(b.id, "building")
+    notify.build_event(b.id, "running")
+    by_ctx = [(c[4], c[3], c[5]) for c in calls["status"]]
+    assert by_ctx[:2] == [("odoo-preview/19.0", "pending", "Building Odoo 19.0 preview"),
+                          ("odoo-preview/19.0/tests", "pending", "Running module tests")]
+    # warn mode: the preview is a success, the tests context a failure
+    assert ("odoo-preview/19.0", "success", "Preview running · 1 failed and 1 error(s) of 6 tests") in by_ctx
+    assert ("odoo-preview/19.0/tests", "failure", "1 failed and 1 error(s) of 6 tests") in by_ctx
+
+
+def test_no_tests_context_when_tests_did_not_run(s, monkeypatch):
+    calls = _capture(monkeypatch)
+    b = _build(s, run_tests=False, test_status="skipped")
+    notify.build_event(b.id, "running")
+    assert [c[4] for c in calls["status"]] == ["odoo-preview/19.0"]
+
+
+def test_slack_when_tests_newly_fail_and_recover(s, monkeypatch):
+    calls = _capture(monkeypatch)
+    appsettings.put(s, "slack_webhook_url_enc", encrypt("https://hooks.slack.test/x"))
+    s.commit()
+    b = _build(s, post=False, previous="removed", previous_test_status="passed",
+               test_status="failed", test_results=FAILED_TESTS)
+    notify.build_event(b.id, "running")
+    assert len(calls["slack"]) == 1 and "module tests failed" in calls["slack"][0][1]["text"]
+    b.test_status = "passed"
+    b.test_results = {"ran": True, "status": "passed", "headline": "6 test(s) passed"}
+    prev = next(x for x in b.branch.builds if x.id < b.id)
+    prev.test_status = "failed"
+    s.commit()
+    notify.build_event(b.id, "running")
+    assert "pass again" in calls["slack"][-1][1]["text"]

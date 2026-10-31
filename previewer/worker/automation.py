@@ -3,16 +3,17 @@ disk guard, resource stats. See scheduler.Task."""
 import json
 import logging
 import shutil
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlalchemy import select
 
-from .. import appsettings, jobs
+from .. import appsettings, capacity, jobs
 from ..config import get_settings
 from ..db import session_scope
 from ..models import Branch, Build, Job, Project, utcnow
-from . import docker_ops
+from . import docker_ops, pg
 from .logs import BuildLog
 from .scheduler import Task
 
@@ -138,17 +139,88 @@ def sleep_idle() -> str:
     return f"slept {len(idle)} idle, {len(limited)} over the limit"
 
 
-def enforce_running_limit(exclude: int | None = None) -> list[int]:
-    """Sleep the longest-idle running previews until at most max_running_previews run."""
-    from . import lifecycle
+_host_cache: dict[str, tuple[float, int | None]] = {}
+HOST_CACHE_SECONDS = 600
+
+
+def _cached(key: str, fetch) -> int | None:
+    hit = _host_cache.get(key)
+    if hit and time.monotonic() - hit[0] < HOST_CACHE_SECONDS:
+        return hit[1]
+    try:
+        value = fetch()
+    except Exception:  # noqa: BLE001 — unknown: the setting applies as is
+        value = None
+    _host_cache[key] = (time.monotonic(), value)
+    return value
+
+
+def host_memory() -> int | None:
+    return _cached("mem", lambda: int(docker_ops.client().info().get("MemTotal") or 0) or None)
+
+
+def running_limit() -> int:
+    """max_running_previews, capped to what fits in the Docker host's memory (next to the
+    builds and the system reserve) and in Postgres' max_connections."""
+    c = get_settings()
     with session_scope() as s:
-        limit = appsettings.get_int(s, "max_running_previews")
+        setting = appsettings.get_int(s, "max_running_previews")
+        preview_mem = appsettings.get(s, "preview_memory_limit")
+        build_mem = appsettings.get(s, "build_memory_limit")
+        builds = appsettings.get_int(s, "max_concurrent_builds")
+        overcommit = float(appsettings.get(s, "memory_overcommit") or 1)
+    return capacity.effective_limit(
+        max(1, setting), host_memory(), preview_mem=preview_mem, builds=max(1, builds),
+        build_mem=build_mem, reserved=c.reserved_memory, overcommit=overcommit,
+        maxconn=c.odoo_db_maxconn, max_connections=_cached("conn", pg.max_connections))
+
+
+def _live_containers() -> dict[int, object] | None:
+    try:
+        return docker_ops.running_previews()
+    except Exception:  # noqa: BLE001 — no Docker: count from the database alone
+        return None
+
+
+def enforce_running_limit(exclude: int | None = None, reserve: int = 0,
+                          spare: frozenset[int] = frozenset()) -> list[int]:
+    """Sleep the longest-idle running previews until at most the running limit run, counting
+    every running preview container (also ones still starting) plus `reserve` about to start.
+    Containers running for a build that is not running/building (e.g. a wake that failed
+    before) are stopped. `exclude` and `spare` are never chosen."""
+    from . import lifecycle
+    limit = running_limit()
+    live = _live_containers()
+    with session_scope() as s:
         running = sorted(s.scalars(select(Build).where(Build.status == "running")), key=_last_activity)
-        excess = len(running) - limit
-        victims = [b.id for b in running if b.id != exclude][:max(0, excess)]
+        if live is None:
+            count = len(running)
+            orphans = []
+        else:
+            status = dict(s.execute(select(Build.id, Build.status).where(Build.id.in_(list(live)))).all())
+            waking = {(j.payload or {}).get("build_id") for j in s.scalars(
+                select(Job).where(Job.type.in_(("start", "wake")), Job.status == "running"))}
+            orphans = [bid for bid in live if status.get(bid) not in ("running", "building")
+                       and bid not in waking and bid != exclude]
+            count = len(live) - len(orphans)
+        candidates = [b.id for b in running if b.id != exclude and b.id not in spare
+                      and (live is None or b.id in live)]
+    for build_id in orphans:
+        log.warning("stopping preview container of build %s: it runs but the build is not live", build_id)
+        docker_ops.stop_container(docker_ops.container_name(build_id))
+    victims = candidates[:max(0, count + reserve - limit)]
     for build_id in victims:
         lifecycle.sleep(build_id, f"more than {limit} previews running; this one was idle longest")
     return victims
+
+
+def make_room(starting: int) -> list[int]:
+    """Before a preview starts: sleep idle ones so it fits within the running limit. Other
+    builds of the same branch are spared (the live one stays up until the new one is healthy)."""
+    with session_scope() as s:
+        b = s.get(Build, starting)
+        siblings = frozenset(s.scalars(select(Build.id).where(Build.branch_id == b.branch_id))) if b else frozenset()
+    return enforce_running_limit(exclude=starting, reserve=1, spare=siblings)
 
 
 # --- disk ---------------------------------------------------------------------------------

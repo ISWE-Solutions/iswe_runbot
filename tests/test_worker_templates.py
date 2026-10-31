@@ -31,8 +31,9 @@ def env(tmp_path, monkeypatch):
     """Fake Docker + Postgres; records what was called."""
     monkeypatch.setattr(logs, "log_path", lambda build_id: tmp_path / "logs" / f"{build_id}.log")
     monkeypatch.setattr(templates, "get_settings",
-                        lambda: SimpleNamespace(data_dir=tmp_path, odoo_db_user="odoo"))
-    calls = SimpleNamespace(init=[], created=[], dropped=[], dbs=set(), rc=0, free=50 * 1024**3, delay=0)
+                        lambda: SimpleNamespace(data_dir=tmp_path, odoo_db_user="odoo", postgres_user="previewer"))
+    calls = SimpleNamespace(init=[], created=[], dropped=[], dbs=set(), rc=0, free=50 * 1024**3, delay=0,
+                            sealed=[], made_by=[])
     monkeypatch.setattr(templates.docker_ops, "image_id", lambda image: "sha256:abcdef123456")
 
     def run_init(**kw):
@@ -47,10 +48,13 @@ def env(tmp_path, monkeypatch):
 
     monkeypatch.setattr(templates.docker_ops, "run_init", run_init)
     monkeypatch.setattr(templates.pg, "module_states", lambda db, mods: {m: "installed" for m in mods})
-    monkeypatch.setattr(templates.pg, "database_exists", lambda db: db in calls.dbs)
+    monkeypatch.setattr(templates.pg, "database_owner", lambda db: "previewer" if db in calls.dbs else None)
+    monkeypatch.setattr(templates.pg, "create_template_database", lambda db, maker: calls.made_by.append((db, maker)))
+    monkeypatch.setattr(templates.pg, "seal_template", lambda db, maker: calls.sealed.append((db, maker)))
     monkeypatch.setattr(templates.pg, "drop_database", lambda db: (calls.dropped.append(db), calls.dbs.discard(db)))
     monkeypatch.setattr(templates.pg, "database_size", lambda db: 50 * 1024**2)
-    monkeypatch.setattr(templates.pg, "create_from_template", lambda n, t, o: calls.created.append((n, t, o)))
+    monkeypatch.setattr(templates.pg, "create_from_template",
+                        lambda n, t, o, template_owner=None: calls.created.append((n, t, o, template_owner)))
     monkeypatch.setattr(templates.pg, "reset_database_identity", lambda n: None)
     monkeypatch.setattr(templates, "_free_bytes", lambda: calls.free)
     return calls
@@ -78,6 +82,10 @@ def test_creates_once_then_reuses(s, env):
     args = env.init[0]["args"]
     assert args[:4] == ["-d", t1.db_name, "-i", "base,web_enterprise"] and "--stop-after-init" in args
     assert env.init[0]["name"].startswith("tpl-")
+    maker = f"pvt_{templates.key_hash(t1.key)}"
+    assert env.made_by == [(t1.db_name, maker)] and env.sealed == [(t1.db_name, maker)]
+    conf = (templates.template_dir(t1.key) / "odoo.conf").read_text()
+    assert f"db_user = {maker}" in conf and "db_user = odoo" not in conf
     t2 = templates.ensure(spec(build_id=8), logs.BuildLog(8))
     assert t2.id == t1.id and len(env.init) == 1
     assert "Database template 19.0 Enterprise" in logs.read_log(7)
@@ -105,7 +113,7 @@ def test_concurrent_builds_make_it_once(s, env):
 def test_failure_falls_back_and_is_not_retried_for_an_hour(s, env):
     env.rc = 255
     assert templates.ensure(spec(), logs.BuildLog(7)) is None
-    assert s.query(DbTemplate).one().status == "failed"
+    assert s.query(DbTemplate).one().status == "failed" and env.sealed == []
     assert "could not be made" in logs.read_log(7)
     env.rc = 0
     assert templates.ensure(spec(), logs.BuildLog(7)) is None and len(env.init) == 1
@@ -134,7 +142,7 @@ def test_build_database_copied_from_template(s, env, tmp_path, monkeypatch):
     sp = spec(db_name="pay_v19_abc_b7", modules=["payroll_zm", "bank_zm"])
     assert pipeline._from_template(sp, logs.BuildLog(7))
     t = s.query(DbTemplate).one()
-    assert env.created == [("pay_v19_abc_b7", t.db_name, "odoo")]
+    assert env.created == [("pay_v19_abc_b7", t.db_name, "pv_b7", f"pvt_{templates.key_hash(t.key)}")]
     assert (tmp_path / "fs" / "7" / "filestore" / "pay_v19_abc_b7" / "asset.bin").exists()
     assert "Copied template 19.0 Enterprise (base, web_enterprise) in" in logs.read_log(7)
     assert "installing payroll_zm, bank_zm" in logs.read_log(7)
@@ -170,3 +178,10 @@ def test_prune_policy(s, env, tmp_path):
     assert (tmp_path / "templates" / templates.key_hash(keep1)).exists()
     assert msg.startswith("dropped 3 template(s), 1 orphan folder(s)")
     assert templates.TASKS[0].name == "prune_db_templates"
+
+
+def test_template_of_the_old_shared_role_is_remade(s, env, monkeypatch):
+    t1 = templates.ensure(spec(), logs.BuildLog(7))
+    monkeypatch.setattr(templates.pg, "database_owner", lambda db: "odoo" if db in env.dbs else None)
+    t2 = templates.ensure(spec(build_id=8), logs.BuildLog(8))
+    assert len(env.init) == 2 and t1.db_name in env.dropped and t2.db_name == t1.db_name

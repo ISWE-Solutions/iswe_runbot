@@ -6,6 +6,9 @@ from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+WEAK_SECRETS = {"dev-secret-change-me", "changeme", "change-me", "secret"}
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
@@ -16,7 +19,8 @@ class Settings(BaseSettings):
     dns_provider: str = ""
     dns_api_token: str = ""
 
-    secret_key: str = "dev-secret-change-me"
+    # Signs sessions and preview passes; required (see check_secrets)
+    secret_key: str = ""
     # Fernet key (urlsafe base64, 32 bytes) for GitHub tokens
     encryption_key: str = ""
 
@@ -26,14 +30,21 @@ class Settings(BaseSettings):
     postgres_user: str = "previewer"
     postgres_password: str = "previewer"
     postgres_db: str = "previewer"
-    # Role the Odoo previews connect as (CREATEDB, not superuser)
+    # Old shared role all previews used to connect as. Each build now has its own role
+    # (worker/pg.py); this one is only locked once no database depends on it any more.
     odoo_db_user: str = "odoo"
-    odoo_db_password: str = "odoo"
+    odoo_db_password: str = ""
+    # Odoo's connection pool per preview (Odoo's default of 64 would exhaust max_connections)
+    odoo_db_maxconn: int = 12
 
     # Host folder holding repos/, builds/, filestore/, logs/. Mounted at the
     # same path inside app and worker so preview bind mounts resolve on the host.
     data_dir: Path = Path("/srv/previewer")
+    # Control network: Traefik, socket-proxy, Postgres, app, worker
     docker_network: str = "previewer_net"
+    # Previews and build containers only: Traefik, Postgres and the worker join it too, but the
+    # Docker socket proxy and the app do not, so branch code cannot read their secrets.
+    preview_network: str = "previewer_previews"
     docker_host: str = "unix:///var/run/docker.sock"
 
     # Fallback Enterprise repo when an Odoo version has none set (Odoo versions page)
@@ -52,9 +63,21 @@ class Settings(BaseSettings):
     build_memory_limit: str = "2g"
     build_timeout_minutes: int = 20
     health_timeout_seconds: int = 120
+    # Memory kept free for Postgres, Traefik, app and worker when fitting previews into the host
+    reserved_memory: str = "2g"
 
     admin_email: str = ""
     test_database: str = "previewer_test"
+
+    def check_secrets(self) -> None:
+        """Refuse to start with a missing or weak SECRET_KEY: anyone who knows it can forge
+        dashboard sessions and preview passes."""
+        key = self.secret_key.strip()
+        if not key:
+            raise RuntimeError("SECRET_KEY is not set (see .env.example)")
+        if len(key) < 32 or key in WEAK_SECRETS:
+            raise RuntimeError("SECRET_KEY is too weak: use at least 32 random characters, e.g. "
+                               "python -c \"import secrets; print(secrets.token_urlsafe(32))\"")
 
     @property
     def database_url(self) -> str:

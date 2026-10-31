@@ -25,7 +25,8 @@ npx playwright show-report report     # HTML report; failures keep screenshots a
 | Variable | Default | Use |
 |---|---|---|
 | `E2E_BASE_URL` | `http://preview.localhost` | Dashboard URL of the stack under test |
-| `E2E_EMAIL` / `E2E_PASSWORD` | `admin@preview.localhost` / `Preview-Admin-2026` | Admin login (the defaults are the **local dev** login only) |
+| `E2E_EMAIL` | `admin@preview.localhost` | Admin login of the stack under test |
+| `E2E_PASSWORD` | required | Its password (never committed; export it in your shell) |
 | `E2E_TESTER_EMAIL` / `E2E_TESTER_PASSWORD` | unset | Enables the permissions test for a tester account |
 | `E2E_CHROME` | unset | Path to a Chromium binary to use instead of Playwright's own |
 | `E2E_WRITE` | unset | `1` runs tests that create (and delete) their own objects |

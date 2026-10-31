@@ -38,10 +38,31 @@ def build_url(build_id: int) -> str:
     return f"{get_settings().dashboard_url}/builds/{build_id}"
 
 
-def _previous_failed(s, b: Build) -> bool:
-    prev = next((x for x in b.branch.builds if x.id < b.id
+def _previous(b: Build) -> Build | None:
+    return next((x for x in b.branch.builds if x.id < b.id
                  and x.error_summary != "Superseded by a newer build"), None)
+
+
+def _previous_failed(s, b: Build) -> bool:
+    prev = _previous(b)
     return prev is not None and prev.status == "failed"
+
+
+def test_headline(b: Build) -> str | None:
+    """"2 failed of 9 tests" etc., or None when no tests ran for this build."""
+    r = b.test_results or {}
+    return r.get("headline") if r.get("ran") else None
+
+
+def _test_change(b: Build) -> str | None:
+    """"failed" when tests newly fail, "recovered" when they pass again, else None."""
+    prev = _previous(b)
+    before = prev.test_status if prev else None
+    if b.test_status == "failed" and before != "failed":
+        return "failed"
+    if b.test_status == "passed" and before == "failed":
+        return "recovered"
+    return None
 
 
 def _send(build_id: int, event: str) -> None:
@@ -52,17 +73,28 @@ def _send(build_id: int, event: str) -> None:
         if b is None:
             return
         project = b.branch.project
-        status = None
+        statuses = []
+        tests = test_headline(b)
         if project.kind == "repo" and project.post_commit_status and b.commit_sha:
+            token = credentials.for_project(project).token
             if event == "building":
                 desc = f"Building Odoo {b.odoo_version} preview"
             elif event == "running":
-                desc = "Preview running"
+                desc = "Preview running" + (f" · {tests}" if tests else "")
             else:
                 desc = headline(b)
             target = get_settings().preview_url(b.host) if event == "running" and b.host else build_url(b.id)
-            status = (project.repo_url, credentials.for_project(project).token, b.commit_sha,
-                      _STATE[event], f"odoo-preview/{b.odoo_version}", desc, target)
+            statuses.append((project.repo_url, token, b.commit_sha, _STATE[event],
+                             f"odoo-preview/{b.odoo_version}", desc, target))
+            # A second context for module tests, so a warn-mode failure still shows on the PR
+            tests_ctx = f"odoo-preview/{b.odoo_version}/tests"
+            if event == "building" and b.branch.effective_run_tests:
+                statuses.append((project.repo_url, token, b.commit_sha, "pending", tests_ctx,
+                                 "Running module tests", build_url(b.id)))
+            elif event in ("running", "failed") and tests:
+                state = "failure" if b.test_status == "failed" else "success"
+                statuses.append((project.repo_url, token, b.commit_sha, state, tests_ctx, tests,
+                                 build_url(b.id)))
         slack_enc = appsettings.get(s, "slack_webhook_url_enc")
         slack_text = None
         if slack_enc and event == "failed":
@@ -72,7 +104,13 @@ def _send(build_id: int, event: str) -> None:
             url = get_settings().preview_url(b.host) if b.host else build_url(b.id)
             slack_text = (f":white_check_mark: {project.name} / {b.branch.name}: fixed, build #{b.id} "
                           f"is running on Odoo {b.odoo_version}\n{url}")
-    if status:
+        elif slack_enc and event == "running" and _test_change(b) == "failed":
+            slack_text = (f":warning: {project.name} / {b.branch.name}: module tests failed on build "
+                          f"#{b.id} ({tests}); the preview is running\n{build_url(b.id)}")
+        elif slack_enc and event == "running" and _test_change(b) == "recovered":
+            slack_text = (f":white_check_mark: {project.name} / {b.branch.name}: module tests pass "
+                          f"again on build #{b.id} ({tests})\n{build_url(b.id)}")
+    for status in statuses:
         try:
             github.create_commit_status(*status, timeout=TIMEOUT)
         except Exception as e:  # noqa: BLE001

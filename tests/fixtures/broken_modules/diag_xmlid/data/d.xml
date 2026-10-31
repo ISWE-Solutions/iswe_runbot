@@ -1,0 +1,6 @@
+<odoo>
+  <record id="p1" model="res.partner">
+    <field name="name">Diag</field>
+    <field name="parent_id" ref="nonexistent_module.nonexistent_record"/>
+  </record>
+</odoo>

@@ -32,7 +32,7 @@ from .routes import (  # noqa: E402
     accounts, admin, auth, board, forward_auth, branches, builds, combos, dependencies, friendly, health, modules,
     access, plain, projects, webhooks,
 )
-from . import failure_view, module_view, selection, system_view, waking  # noqa: E402
+from . import failure_view, module_view, selection, system_view, test_view, waking  # noqa: E402
 from .deps import templates  # noqa: E402
 from .views import (  # noqa: E402
     detail_url, error_headline, friendly_path, github_base, served_version, unbuilt_commit,
@@ -52,9 +52,14 @@ templates.env.globals.update(friendly_path=friendly_path, served_version=served_
                              first_finding=failure_view.first_finding,
                              finding_where=failure_view.where, log_needles=failure_view.log_needles,
                              kind_icon=failure_view.kind_icon, kind_label=failure_view.kind_label,
-                             app_setting=system_view.app_setting, disk_banner=system_view.disk_banner)
+                             app_setting=system_view.app_setting, disk_banner=system_view.disk_banner,
+                             test_badge=test_view.badge, test_warn=test_view.warn_mode,
+                             test_failed_count=test_view.failed_count,
+                             test_state_message=test_view.state_message,
+                             test_skip_reason=test_view.skip_reason)
 
 settings = get_settings()
+settings.check_secrets()
 LOCAL_HOSTS = {"localhost", "127.0.0.1"}
 ANY_HOST_PATHS = ("/health", "/static/", "/auth/forward", "/api/webhooks/")
 

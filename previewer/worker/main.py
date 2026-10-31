@@ -16,7 +16,7 @@ from .. import appsettings, jobs
 from ..config import get_settings
 from ..db import SessionLocal, session_scope
 from ..models import Build, Job, SchedulerState, utcnow
-from . import automation, docker_ops, lifecycle, pg, pipeline, scheduler
+from . import automation, docker_ops, hardening, lifecycle, pipeline, scheduler
 from .sync import sync_project
 
 log = logging.getLogger("previewer.worker")
@@ -141,9 +141,10 @@ class Worker:
 
     def run(self) -> None:
         c = get_settings()
+        c.check_secrets()
         for d in (c.repos_dir, c.builds_dir, c.filestore_dir, c.logs_dir, c.checkouts_dir):
             d.mkdir(parents=True, exist_ok=True)
-        pg.ensure_odoo_role()
+        log.info("isolation: %s", hardening.secure_legacy())
         self.recover()
         with session_scope() as s:
             n_builds = max(1, appsettings.get_int(s, "max_concurrent_builds"))

@@ -58,11 +58,12 @@ def build_page(build_id: int, request: Request, tab: str = "", s: Session = Depe
     path = log_file(build)
     size = path.stat().st_size if path.exists() else 0
     failed = build.status == "failed"
-    tabs = (["why"] if failed else []) + ["plan", "log", "details"]
+    tabs = (["why"] if failed else []) + ["tests", "plan", "log", "details"]
+    default = "why" if failed else ("tests" if build.test_status == "failed" else "log")
     return render(request, "build.html", {
         "build": build, "branch": build.branch, "project": build.branch.project,
         "start_offset": max(0, size - INITIAL_TAIL), "truncated": size > INITIAL_TAIL,
-        "tab": tab if tab in tabs else ("why" if failed else "log"),
+        "tab": tab if tab in tabs else default,
     })
 
 

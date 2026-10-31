@@ -1,0 +1,28 @@
+{% from "_macros.html" import csrf with context %}
+{# Module tests settings (repo projects and combined previews; plain previews have no own modules). #}
+{% set box = "mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm" %}
+{% set can_edit = can(user, 'developer') if project.is_combo else can(user, 'admin') %}
+<form method="post" action="/projects/{{ project.id }}/tests" class="{{ box }}" id="module-tests">
+  {{ csrf() }}
+  <h2 class="font-semibold"><i class="bi bi-clipboard2-check text-gray-500"></i> Module tests</h2>
+  <p class="mt-1 text-sm text-gray-600">Each build runs the tests of {{ "every part's modules" if project.is_combo else "this project's own modules" }} while installing them
+    (Odoo <code>--test-enable</code>). Odoo's own tests are not run. Results show on the build's <b>Tests</b> tab and as a badge on the board.</p>
+  <label class="mt-4 flex items-start gap-2 text-sm">
+    <input type="checkbox" name="run_tests" class="mt-1" {% if project.run_tests %}checked{% endif %} {% if not can_edit %}disabled{% endif %}>
+    <span class="font-medium">Run module tests during the build</span>
+  </label>
+  <fieldset class="mt-4 text-sm">
+    <legend class="font-medium">When tests fail</legend>
+    <label class="mt-2 flex items-start gap-2"><input type="radio" name="test_failure_mode" value="warn" class="mt-1" {% if project.test_failure_mode != 'fail' %}checked{% endif %} {% if not can_edit %}disabled{% endif %}>
+      <span>Keep the preview running and show a warning <span class="text-xs text-gray-500">(testers can keep using it while the tests are fixed)</span></span></label>
+    <label class="mt-1 flex items-start gap-2"><input type="radio" name="test_failure_mode" value="fail" class="mt-1" {% if project.test_failure_mode == 'fail' %}checked{% endif %} {% if not can_edit %}disabled{% endif %}>
+      <span>Fail the build <span class="text-xs text-gray-500">(the previous preview stays up, like any failed build)</span></span></label>
+  </fieldset>
+  <label class="mt-4 block text-sm font-medium">Test tags <span class="font-normal text-gray-500">(optional)</span>
+    <input name="test_tags" value="{{ project.test_tags }}" maxlength="500" placeholder="blank = all tests of {{ 'the parts' if project.is_combo else 'this project' }}'s modules" {% if not can_edit %}disabled{% endif %}
+           class="mt-1 block w-full max-w-xl rounded-md border border-gray-300 px-3 py-2 font-mono text-sm">
+    <span class="mt-1 block text-xs font-normal text-gray-500">Odoo <code>--test-tags</code> syntax, comma-separated, e.g. <code>/payroll_zm,-/payroll_zm:slow</code> or <code>/payroll_zm:TestPayslip</code>.</span>
+  </label>
+  <p class="mt-3 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600 ring-1 ring-gray-200"><i class="bi bi-info-circle"></i> Browser tests (tours) need Chrome in the Odoo image and are skipped for now; they show as skipped on the Tests tab.</p>
+  {% if can_edit %}<button class="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save module tests</button>{% endif %}
+</form>

@@ -32,6 +32,17 @@
       <option value="off" {% if cur == 'off' %}selected{% endif %}>Off</option>
     </select>
   </label>
+  {% if not project.is_plain %}
+  <label class="block text-sm font-medium">Module tests
+    <select name="run_tests_override" class="{{ input }}">
+      {% set tcur = 'default' if branch.run_tests_override is none else ('on' if branch.run_tests_override else 'off') %}
+      <option value="default" {% if tcur == 'default' %}selected{% endif %}>Project default ({{ 'run' if project.run_tests else "don't run" }})</option>
+      <option value="on" {% if tcur == 'on' %}selected{% endif %}>Run</option>
+      <option value="off" {% if tcur == 'off' %}selected{% endif %}>Don't run</option>
+    </select>
+    <span class="mt-1 block text-xs font-normal text-gray-500">Runs the tests of the modules being installed during the build; results on the build's Tests tab. Changing it rebuilds.</span>
+  </label>
+  {% endif %}
   <label class="flex items-center gap-2 text-sm font-medium">
     <input type="checkbox" name="enabled" {% if branch.enabled %}checked{% endif %} class="h-4 w-4 rounded border-gray-300"> Selected for building
   </label>

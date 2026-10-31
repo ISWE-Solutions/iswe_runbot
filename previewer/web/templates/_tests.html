@@ -1,0 +1,81 @@
+{# Module test results: a badge for cards/rows and the build page Tests tab. #}
+{% macro test_badge_html(build, extra='') -%}
+{% set tb = test_badge(build) %}
+{% if tb %}<a href="/builds/{{ build.id }}?tab=tests" title="{{ tb.title }}"
+   class="inline-flex shrink-0 items-center rounded px-1 text-[11px] font-medium leading-4 {{ {'pass': 'bg-green-50 text-green-700 ring-1 ring-green-200', 'fail': 'bg-red-50 text-red-700 ring-1 ring-red-200', 'none': 'bg-gray-50 text-gray-500 ring-1 ring-gray-200'}[tb.kind] }} {{ extra }}">{{ tb.label }}</a>{% endif %}
+{%- endmacro %}
+
+{% macro tests_panel(build) %}
+{% set r = build.test_results or {} %}
+{% set msg = test_state_message(build) %}
+{% if msg %}
+<p class="rounded-lg border border-gray-200 bg-white px-4 py-6 text-sm text-gray-600"><i class="bi bi-clipboard2 text-gray-400"></i> {{ msg }}</p>
+{% else %}
+{% set ok = build.test_status == 'passed' %}
+<div class="rounded-lg border {{ 'border-green-200 bg-green-50' if ok else 'border-red-200 bg-red-50' }} px-4 py-3">
+  <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+    <span class="font-semibold {{ 'text-green-800' if ok else 'text-red-800' }}"><i class="bi {{ 'bi-clipboard2-check' if ok else 'bi-clipboard2-x' }}"></i> {{ r.headline }}</span>
+    <span class="text-green-700">{{ r.passed or 0 }} passed</span>
+    <span class="{{ 'text-red-700 font-medium' if r.failed else 'text-gray-500' }}">{{ r.failed or 0 }} failed</span>
+    <span class="{{ 'text-red-700 font-medium' if r.errors else 'text-gray-500' }}">{{ r.errors or 0 }} error(s)</span>
+    <span class="text-gray-500">{{ r.skipped or 0 }} skipped</span>
+  </p>
+  {% if r.modules %}<p class="mt-1 text-xs text-gray-600">Modules tested: {% for m in r.modules %}<code class="rounded bg-white/70 px-1">{{ m }}</code>{% if not loop.last %} {% endif %}{% endfor %}</p>{% endif %}
+  {% if build.test_status == 'failed' and build.status in ('running', 'sleeping', 'stopped') %}
+  <p class="mt-1 text-xs text-amber-800"><i class="bi bi-exclamation-triangle-fill"></i> The preview still runs: this project keeps previews when tests fail (Settings → Module tests).</p>
+  {% endif %}
+</div>
+
+{% for f in r.failures or [] %}
+<article class="mt-3 rounded-lg border border-red-200 bg-white shadow-sm">
+  <header class="flex flex-wrap items-center gap-2 border-b border-red-100 px-4 py-2 text-sm">
+    <span class="rounded px-1.5 text-xs font-semibold {{ 'bg-red-100 text-red-800' if f.kind == 'fail' else 'bg-orange-100 text-orange-800' }}">{{ 'FAIL' if f.kind == 'fail' else 'ERROR' }}</span>
+    <code class="font-medium text-gray-900">{{ f.test }}</code>
+    <span class="text-xs text-gray-500">{{ f.module }}</span>
+    {% if f.file %}
+    <span class="ml-auto text-xs">{% if f.url %}<a href="{{ f.url }}" target="_blank" rel="noopener" class="text-indigo-600 hover:underline"><i class="bi bi-github"></i> {{ f.file }}{% if f.line %}:{{ f.line }}{% endif %}</a>{% else %}{{ f.file }}{% if f.line %}:{{ f.line }}{% endif %}{% endif %}{% if f.source %} <span class="text-gray-400">· {{ f.source }}</span>{% endif %}</span>
+    {% endif %}
+  </header>
+  <div class="px-4 py-3">
+    <pre class="whitespace-pre-wrap break-words rounded bg-red-50 px-3 py-2 font-mono text-xs text-red-900">{{ f.message or 'No message' }}</pre>
+    {% if f.traceback %}
+    <details class="mt-2"><summary class="cursor-pointer text-xs text-gray-600">Traceback</summary>
+      <pre class="mt-1 max-h-80 overflow-auto whitespace-pre-wrap break-all rounded bg-gray-900 p-3 font-mono text-[11px] text-gray-100">{{ f.traceback }}</pre>
+    </details>
+    {% endif %}
+  </div>
+</article>
+{% endfor %}
+
+{% if r.skipped_tests %}
+<section class="mt-4 overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+  <h3 class="border-b border-gray-100 px-4 py-2 text-sm font-semibold">Skipped tests</h3>
+  <table class="min-w-full text-sm">
+    <thead class="bg-gray-50 text-left text-xs uppercase text-gray-500"><tr><th class="px-4 py-2">Test</th><th class="px-4 py-2">Why</th></tr></thead>
+    <tbody class="divide-y divide-gray-100">
+    {% for sk in r.skipped_tests %}
+      <tr><td class="px-4 py-2"><code>{{ sk.test }}</code> <span class="text-xs text-gray-500">{{ sk.module }}</span></td>
+          <td class="px-4 py-2 text-gray-600">{{ test_skip_reason(sk.reason) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endif %}
+{% endmacro %}
+
+{# One line for overview pages: the latest build with test results, or why there is none. #}
+{% macro test_line(branch) %}
+{% set tb_build = (branch.builds|selectattr('test_status', 'in', ['passed', 'failed', 'none'])|first) %}
+<p class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+  <span class="text-gray-500">Module tests:</span>
+  {% if not branch.effective_run_tests %}
+    <span class="text-gray-600">off for this {{ 'preview' if branch.project.is_combo else 'branch' }}</span>
+  {% elif tb_build and test_badge(tb_build) %}
+    {{ test_badge_html(tb_build) }}
+    <a class="text-indigo-600 hover:underline" href="/builds/{{ tb_build.id }}?tab=tests">{{ (tb_build.test_results or {}).get('headline', '') }} · build #{{ tb_build.id }}</a>
+  {% else %}
+    <span class="text-gray-600">on; results appear after the next build</span>
+  {% endif %}
+</p>
+{% endmacro %}

@@ -11,7 +11,8 @@ previewer/
   db.py            engine/session; db.configure(url) rebinds (tests)
   models.py        all tables; change together with a new Alembic migration
   naming.py        slug / host label / db name rules (63-char limit + 6-char hash)
-  security.py      bcrypt, Fernet encrypt/decrypt (GitHub tokens), random secrets
+  security.py      bcrypt, Fernet encrypt/decrypt (GitHub tokens, webhook secrets), random secrets
+  capacity.py      how many previews fit in the Docker host's memory (pure)
   jobs.py          Postgres queue: enqueue, queue_build, claim (SKIP LOCKED), finish
   appsettings.py   runtime settings in the `settings` table, defaults from .env
   github.py        test_connection, list_branches, fill_commit_details, branch_exists
@@ -19,6 +20,7 @@ previewer/
   credentials.py   which Git credential pulls what: for_project, for_dependency, enterprise_source
   modules.py       install planning (pure): plan(), top_level(), explain(), odoo_dependency_errors()
   diagnose.py      why a build failed (pure): diagnose(log, mounts, signals) -> [Finding], headline()
+  testresults.py   module test results from an Odoo log (pure): parse(log, mounts) -> TestReport
   gitmirror.py     bare mirrors under DATA_DIR/repos, export commits    (worker only)
   cli.py           python -m previewer.cli seed | create-user
   web/             FastAPI app (main.py), routes, Jinja + HTMX templates, Tailwind
@@ -98,6 +100,24 @@ Dashboard: http://preview.localhost (browsers and curl resolve `*.localhost` to 
 - DB templates (`db_templates`): builds copy a ready database (base + Enterprise core for that
   version/edition/demo/image/Enterprise commit) with its filestore instead of installing from
   scratch, when the `use_db_templates` setting is 1.
+- Module tests: on by default (`Project.run_tests`, per-branch `run_tests_override`). The install
+  runs with `--test-enable --test-tags <Project.test_tags or "/<own module>,...">` (own = the
+  project repo's modules; for combos all parts' modules; plain previews have none -> skipped).
+  Odoo exits 1 when tests fail even though every module installed: the worker tells that apart
+  from an install failure, saves `Build.test_status` + `Build.test_results` (testresults.parse),
+  and with `test_failure_mode` "warn" still starts the preview; "fail" fails the build (diagnosis
+  kind "tests"). Formats come from real logs in tests/fixtures/odoo_logs/*-tests*.log.
+- Isolation: preview and init containers join only `preview_network` (`previewer_previews`, with
+  Traefik, Postgres and the worker); never put them on `docker_network`, where the socket proxy
+  exposes every container's environment. Each build connects as its own role `pg.build_role(id)`
+  (no CREATEDB) that owns only its database: the worker creates the role and the (empty or
+  template-copied) database before Odoo runs, and `teardown` drops both. Templates are made by
+  `pvt_<key hash>` roles, owned by the superuser, and copies are handed over with `pg.hand_over`.
+  `worker/hardening.py` upgrades older previews at every worker start.
+- Running limit: `automation.running_limit()` = the setting capped by `capacity.effective_limit`
+  (host memory, `memory_overcommit`, Postgres connections). Call `automation.make_room` before
+  starting any preview container.
+- Webhooks: verify the signature on the raw body before parsing or looking anything up.
 - Build status values: queued, building, running, sleeping, failed, stopped, removed.
 - Python 3.12, SQLAlchemy 2.0 style (`select()`), type hints, small modules, no comments
   that restate the code.

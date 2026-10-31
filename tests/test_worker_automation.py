@@ -16,6 +16,8 @@ def quiet_docker(tmp_path, monkeypatch):
     stopped: list[str] = []
     monkeypatch.setattr(logs, "log_path", lambda build_id: tmp_path / "logs" / f"{build_id}.log")
     monkeypatch.setattr(lifecycle.docker_ops, "stop_container", lambda name: stopped.append(name))
+    monkeypatch.setattr(automation, "_live_containers", lambda: None)
+    monkeypatch.setattr(automation, "host_memory", lambda: None)
     return stopped
 
 

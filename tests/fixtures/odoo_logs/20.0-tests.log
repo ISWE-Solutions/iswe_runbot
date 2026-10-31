@@ -1,0 +1,330 @@
+2026-10-30 20:06:59,907 1 WARNING ? odoo.tools.config: option addons_path, invalid addons directory '/mnt/extra-addons', skipped
+2026-10-30 20:06:59,907 1 WARNING ? odoo.tools.config: option --without-demo: since 19.0, invalid boolean value: 'all', assume True
+2026-10-30 20:06:59,907 1 WARNING ? odoo.tools.config: option addons_path, invalid addons directory '/mnt/extra-addons', skipped
+2026-10-30 20:06:59,908 1 INFO ? odoo: Odoo version 20.0-20261015
+2026-10-30 20:06:59,908 1 INFO ? odoo: Using configuration file at /etc/odoo/odoo.conf
+2026-10-30 20:06:59,908 1 INFO ? odoo: addons paths: _NamespacePath(['/usr/lib/python3/dist-packages/odoo/addons', '/var/lib/odoo/addons/20.0', '/mnt/extra/0', '/usr/lib/python3/dist-packages/addons'])
+2026-10-30 20:06:59,908 1 INFO ? odoo: database: odoo@postgres:default
+2026-10-30 20:07:00,227 1 INFO ? odoo.service.server: HTTP service running on 0.0.0.0:8069
+2026-10-30 20:07:00,233 1 INFO diag_tests_20 odoo.tests.common: Importing test framework
+2026-10-30 20:07:00,245 1 INFO diag_tests_20 odoo.modules.loading: Initializing database diag_tests_20
+2026-10-30 20:07:00,464 1 WARNING diag_tests_20 odoo.modules.module: Missing `author` key in manifest for 'diag_tests', defaulting to ''
+2026-10-30 20:07:00,465 1 WARNING diag_tests_20 odoo.modules.module: Missing `author` key in manifest for 'diag_tests', defaulting to ''
+2026-10-30 20:07:00,798 1 INFO diag_tests_20 odoo.modules.loading: loading 1 modules...
+2026-10-30 20:07:00,798 1 INFO diag_tests_20 odoo.modules.loading: Loading module base (1/1)
+2026-10-30 20:07:00,812 1 INFO diag_tests_20 odoo.registry: module base: creating or updating database tables
+2026-10-30 20:07:00,933 1 INFO diag_tests_20 odoo.fields: Prepare computation of ir.module.module.menus_by_module in 694 records
+2026-10-30 20:07:00,934 1 INFO diag_tests_20 odoo.fields: Prepare computation of ir.module.module.reports_by_module in 694 records
+2026-10-30 20:07:00,935 1 INFO diag_tests_20 odoo.fields: Prepare computation of ir.module.module.views_by_module in 694 records
+2026-10-30 20:07:00,970 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.partner.user_id in 1 records
+2026-10-30 20:07:00,971 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.partner.commercial_partner_id in 1 records
+2026-10-30 20:07:00,971 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.partner.complete_name in 1 records
+2026-10-30 20:07:00,971 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.partner.lang in 1 records
+2026-10-30 20:07:00,972 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.partner.commercial_company_name in 1 records
+2026-10-30 20:07:00,973 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.partner.properties in 1 records
+2026-10-30 20:07:00,973 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.partner.partner_share in 1 records
+2026-10-30 20:07:00,984 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.currency.decimal_places in 1 records
+2026-10-30 20:07:00,994 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.company.company_details in 1 records
+2026-10-30 20:07:00,994 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.company.uses_default_logo in 1 records
+2026-10-30 20:07:00,995 1 INFO diag_tests_20 odoo.models: Computing parent_path for table res_company...
+2026-10-30 20:07:01,006 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.users.signature in 1 records
+2026-10-30 20:07:01,006 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.users.share in 1 records
+2026-10-30 20:07:01,528 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/res.lang.csv
+2026-10-30 20:07:01,545 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/res_lang_data.xml
+2026-10-30 20:07:01,559 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/res_partner_data.xml
+2026-10-30 20:07:01,608 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/res_currency_data.xml
+2026-10-30 20:07:01,765 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/res_company_data.xml
+2026-10-30 20:07:01,776 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/res_users_data.xml
+2026-10-30 20:07:02,169 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/report_paperformat_data.xml
+2026-10-30 20:07:02,173 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/res_country_data.xml
+2026-10-30 20:07:02,363 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/clearing_label_data.xml
+2026-10-30 20:07:02,369 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/ir_demo_data.xml
+2026-10-30 20:07:02,374 1 INFO diag_tests_20 odoo.modules.loading: loading base/security/base_groups.xml
+2026-10-30 20:07:02,451 1 INFO diag_tests_20 odoo.addons.base.models.res_users: Group change: user 1 with IP n/a changed groups of user 3 who belonged to [] with changes [(<Command.LINK: 4>, 12, 0)]
+2026-10-30 20:07:02,471 1 INFO diag_tests_20 odoo.modules.loading: loading base/wizard/wizard_ir_model_menu_create_views.xml
+2026-10-30 20:07:02,475 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/decimal_precision_views.xml
+2026-10-30 20:07:02,480 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_config_views.xml
+2026-10-30 20:07:02,482 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/res.country.state.csv
+2026-10-30 20:07:02,649 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_actions_views.xml
+2026-10-30 20:07:02,693 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_asset_views.xml
+2026-10-30 20:07:02,698 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_config_parameter_views.xml
+2026-10-30 20:07:02,703 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_cron_views.xml
+2026-10-30 20:07:02,711 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_cron_trigger_views.xml
+2026-10-30 20:07:02,715 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_filters_views.xml
+2026-10-30 20:07:02,721 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_mail_server_views.xml
+2026-10-30 20:07:02,727 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_model_views.xml
+2026-10-30 20:07:02,756 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_attachment_views.xml
+2026-10-30 20:07:02,764 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_access_views.xml
+2026-10-30 20:07:02,771 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_sequence_views.xml
+2026-10-30 20:07:02,776 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_ui_menu_views.xml
+2026-10-30 20:07:02,781 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_ui_view_views.xml
+2026-10-30 20:07:02,794 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_default_views.xml
+2026-10-30 20:07:02,799 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/ir_config_parameter_data.xml
+2026-10-30 20:07:02,800 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/ir_cron_data.xml
+2026-10-30 20:07:02,806 1 INFO diag_tests_20 odoo.modules.loading: loading base/report/ir_model_report.xml
+2026-10-30 20:07:02,807 1 INFO diag_tests_20 odoo.modules.loading: loading base/report/ir_model_templates.xml
+2026-10-30 20:07:02,810 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_logging_views.xml
+2026-10-30 20:07:02,815 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_qweb_widget_templates.xml
+2026-10-30 20:07:02,819 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_module_views.xml
+2026-10-30 20:07:02,830 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/ir_module_category_data.xml
+2026-10-30 20:07:02,843 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/ir_module_module.xml
+2026-10-30 20:07:02,863 1 INFO diag_tests_20 odoo.modules.loading: loading base/report/ir_module_reports.xml
+2026-10-30 20:07:02,864 1 INFO diag_tests_20 odoo.modules.loading: loading base/report/ir_module_report_templates.xml
+2026-10-30 20:07:02,866 1 INFO diag_tests_20 odoo.modules.loading: loading base/wizard/base_module_update_views.xml
+2026-10-30 20:07:02,869 1 INFO diag_tests_20 odoo.modules.loading: loading base/wizard/base_language_install_views.xml
+2026-10-30 20:07:02,872 1 INFO diag_tests_20 odoo.modules.loading: loading base/wizard/base_import_language_views.xml
+2026-10-30 20:07:02,875 1 INFO diag_tests_20 odoo.modules.loading: loading base/wizard/base_module_upgrade_views.xml
+2026-10-30 20:07:02,879 1 INFO diag_tests_20 odoo.modules.loading: loading base/wizard/base_module_uninstall_views.xml
+2026-10-30 20:07:02,882 1 INFO diag_tests_20 odoo.modules.loading: loading base/wizard/base_export_language_views.xml
+2026-10-30 20:07:02,884 1 INFO diag_tests_20 odoo.modules.loading: loading base/wizard/base_partner_merge_views.xml
+2026-10-30 20:07:02,889 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/ir_demo_failure_data.xml
+2026-10-30 20:07:02,894 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/ir_profile_views.xml
+2026-10-30 20:07:02,906 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_company_views.xml
+2026-10-30 20:07:02,912 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_lang_views.xml
+2026-10-30 20:07:02,918 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_partner_views.xml
+2026-10-30 20:07:02,944 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/clearing_label_views.xml
+2026-10-30 20:07:02,946 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_partner_bank_views.xml
+2026-10-30 20:07:02,951 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_country_views.xml
+2026-10-30 20:07:02,956 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_country_group_views.xml
+2026-10-30 20:07:02,959 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_country_state_views.xml
+2026-10-30 20:07:02,964 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_currency_views.xml
+2026-10-30 20:07:02,975 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_groups_views.xml
+2026-10-30 20:07:02,988 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_users_views.xml
+2026-10-30 20:07:03,013 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_users_apikeys_views.xml
+2026-10-30 20:07:03,015 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_device_views.xml
+2026-10-30 20:07:03,023 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_users_identitycheck_views.xml
+2026-10-30 20:07:03,025 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/res_config_settings_views.xml
+2026-10-30 20:07:03,027 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/report_paperformat_views.xml
+2026-10-30 20:07:03,031 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/ir_action_data.xml
+2026-10-30 20:07:03,033 1 INFO diag_tests_20 odoo.modules.loading: loading base/data/website.xml
+2026-10-30 20:07:03,035 1 INFO diag_tests_20 odoo.modules.loading: loading base/views/base_menus.xml
+2026-10-30 20:07:03,089 1 INFO diag_tests_20 odoo.modules.loading: loading base/security/ir.access.csv
+2026-10-30 20:07:03,183 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:03,221 1 INFO diag_tests_20 odoo.modules.loading: Module base loaded in 2.42s, 8642 queries (+8642 other)
+2026-10-30 20:07:03,221 1 INFO diag_tests_20 odoo.modules.loading: 1 modules loaded in 2.42s, 8642 queries (+8642 extra)
+2026-10-30 20:07:03,224 1 INFO diag_tests_20 odoo.modules.loading: updating modules list
+2026-10-30 20:07:03,225 1 INFO diag_tests_20 odoo.addons.base.models.ir_module: ALLOW access to module.update_list on [] to user __system__ #1 via n/a
+2026-10-30 20:07:03,300 1 WARNING diag_tests_20 odoo.modules.module: Missing `author` key in manifest for 'diag_tests', defaulting to ''
+2026-10-30 20:07:03,449 1 INFO diag_tests_20 odoo.addons.base.models.ir_module: ALLOW access to module.button_install on ['diag_tests'] to user __system__ #1 via n/a
+2026-10-30 20:07:03,472 1 INFO diag_tests_20 odoo.modules.loading: loading 17 modules...
+2026-10-30 20:07:03,472 1 INFO diag_tests_20 odoo.modules.loading: Loading module base_report_wkhtmltox (2/17)
+2026-10-30 20:07:03,475 1 INFO diag_tests_20 odoo.registry: module base_report_wkhtmltox: creating or updating database tables
+2026-10-30 20:07:03,488 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:03,490 1 INFO diag_tests_20 odoo.modules.loading: Module base_report_wkhtmltox loaded in 0.02s, 44 queries (+44 other)
+2026-10-30 20:07:03,490 1 INFO diag_tests_20 odoo.modules.loading: Loading module diag_tests (3/17)
+2026-10-30 20:07:03,497 1 INFO diag_tests_20 odoo.registry: Caches invalidated, signaling through the database: ['default', 'stable']
+2026-10-30 20:07:03,499 1 WARNING diag_tests_20 odoo.tests.common: A tests should be either at_install or post_install, which is not the case of <class 'odoo.addons.diag_tests.tests.test_things.TestAtInstall'>
+2026-10-30 20:07:03,506 1 INFO diag_tests_20 odoo.addons.diag_tests.tests.test_things: Starting TestAtInstall.test_at_install_passes ...
+2026-10-30 20:07:03,509 1 INFO diag_tests_20 odoo.addons.base.models.ir_attachment: filestore gc 10 checked, 0 removed
+2026-10-30 20:07:03,510 1 INFO diag_tests_20 odoo.modules.loading: Module diag_tests loaded in 0.02s (incl. 0.01s test), 13 queries (+6 test, +13 other)
+2026-10-30 20:07:03,510 1 INFO diag_tests_20 odoo.modules.loading: Loading module rpc (4/17)
+2026-10-30 20:07:03,516 1 INFO diag_tests_20 odoo.registry: Caches invalidated, signaling through the database: ['default', 'stable']
+2026-10-30 20:07:03,518 1 INFO diag_tests_20 odoo.modules.loading: Module rpc loaded in 0.01s, 12 queries (+12 other)
+2026-10-30 20:07:03,518 1 INFO diag_tests_20 odoo.modules.loading: Loading module web (5/17)
+2026-10-30 20:07:03,531 1 INFO diag_tests_20 odoo.registry: module web: creating or updating database tables
+2026-10-30 20:07:03,677 1 INFO diag_tests_20 odoo.modules.loading: loading web/views/webclient_templates.xml
+2026-10-30 20:07:03,699 1 INFO diag_tests_20 odoo.modules.loading: loading web/views/report_templates.xml
+2026-10-30 20:07:03,733 1 INFO diag_tests_20 odoo.modules.loading: loading web/views/base_document_layout_views.xml
+2026-10-30 20:07:03,740 1 INFO diag_tests_20 odoo.modules.loading: loading web/views/partner_view.xml
+2026-10-30 20:07:03,745 1 INFO diag_tests_20 odoo.modules.loading: loading web/views/speedscope_template.xml
+2026-10-30 20:07:03,747 1 INFO diag_tests_20 odoo.modules.loading: loading web/views/memory_template.xml
+2026-10-30 20:07:03,749 1 INFO diag_tests_20 odoo.modules.loading: loading web/views/speedscope_config_wizard.xml
+2026-10-30 20:07:03,752 1 INFO diag_tests_20 odoo.modules.loading: loading web/views/neutralize_views.xml
+2026-10-30 20:07:03,755 1 INFO diag_tests_20 odoo.modules.loading: loading web/views/ir_ui_view_views.xml
+2026-10-30 20:07:03,758 1 INFO diag_tests_20 odoo.modules.loading: loading web/data/ir_attachment.xml
+2026-10-30 20:07:03,760 1 INFO diag_tests_20 odoo.modules.loading: loading web/data/report_layout.xml
+2026-10-30 20:07:03,775 1 INFO diag_tests_20 odoo.modules.loading: loading web/security/ir.access.csv
+2026-10-30 20:07:03,805 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:03,816 1 INFO diag_tests_20 odoo.modules.loading: Module web loaded in 0.30s, 1384 queries (+1384 other)
+2026-10-30 20:07:03,816 1 INFO diag_tests_20 odoo.modules.loading: Loading module api_doc (6/17)
+2026-10-30 20:07:03,819 1 INFO diag_tests_20 odoo.registry: module api_doc: creating or updating database tables
+2026-10-30 20:07:03,827 1 INFO diag_tests_20 odoo.modules.loading: loading api_doc/security/res_groups.xml
+2026-10-30 20:07:03,838 1 INFO diag_tests_20 odoo.modules.loading: loading api_doc/views/docclient.xml
+2026-10-30 20:07:03,844 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:03,846 1 INFO diag_tests_20 odoo.modules.loading: Module api_doc loaded in 0.03s, 88 queries (+88 other)
+2026-10-30 20:07:03,846 1 INFO diag_tests_20 odoo.modules.loading: Loading module auth_totp (7/17)
+2026-10-30 20:07:03,855 1 INFO diag_tests_20 odoo.registry: module auth_totp: creating or updating database tables
+2026-10-30 20:07:03,882 1 INFO diag_tests_20 odoo.modules.loading: loading auth_totp/data/ir_action_data.xml
+2026-10-30 20:07:03,887 1 INFO diag_tests_20 odoo.modules.loading: loading auth_totp/views/res_users_views.xml
+2026-10-30 20:07:03,901 1 INFO diag_tests_20 odoo.modules.loading: loading auth_totp/views/templates.xml
+2026-10-30 20:07:03,903 1 INFO diag_tests_20 odoo.modules.loading: loading auth_totp/wizard/auth_totp_wizard_views.xml
+2026-10-30 20:07:03,905 1 INFO diag_tests_20 odoo.modules.loading: loading auth_totp/security/ir.access.csv
+2026-10-30 20:07:03,916 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:03,919 1 INFO diag_tests_20 odoo.modules.loading: Module auth_totp loaded in 0.07s, 208 queries (+208 other)
+2026-10-30 20:07:03,919 1 INFO diag_tests_20 odoo.modules.loading: Loading module base_import (8/17)
+2026-10-30 20:07:03,935 1 INFO diag_tests_20 odoo.registry: module base_import: creating or updating database tables
+2026-10-30 20:07:04,075 1 INFO diag_tests_20 odoo.modules.loading: loading base_import/security/ir.access.csv
+2026-10-30 20:07:04,099 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:04,100 1 INFO diag_tests_20 odoo.modules.loading: Module base_import loaded in 0.18s, 1123 queries (+1123 other)
+2026-10-30 20:07:04,100 1 INFO diag_tests_20 odoo.modules.loading: Loading module base_import_module (9/17)
+2026-10-30 20:07:04,104 1 INFO diag_tests_20 odoo.registry: module base_import_module: creating or updating database tables
+2026-10-30 20:07:04,126 1 INFO diag_tests_20 odoo.modules.loading: loading base_import_module/views/base_import_module_view.xml
+2026-10-30 20:07:04,135 1 INFO diag_tests_20 odoo.modules.loading: loading base_import_module/views/ir_module_views.xml
+2026-10-30 20:07:04,147 1 INFO diag_tests_20 odoo.modules.loading: loading base_import_module/security/ir.access.csv
+2026-10-30 20:07:04,157 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:04,159 1 INFO diag_tests_20 odoo.modules.loading: Module base_import_module loaded in 0.06s, 172 queries (+172 other)
+2026-10-30 20:07:04,159 1 INFO diag_tests_20 odoo.modules.loading: Loading module base_setup (10/17)
+2026-10-30 20:07:04,164 1 INFO diag_tests_20 odoo.registry: module base_setup: creating or updating database tables
+2026-10-30 20:07:04,180 1 INFO diag_tests_20 odoo.modules.loading: loading base_setup/data/base_setup_data.xml
+2026-10-30 20:07:04,184 1 INFO diag_tests_20 odoo.modules.loading: loading base_setup/views/res_config_settings_views.xml
+2026-10-30 20:07:04,199 1 INFO diag_tests_20 odoo.modules.loading: loading base_setup/views/res_partner_views.xml
+2026-10-30 20:07:04,207 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:04,209 1 INFO diag_tests_20 odoo.modules.loading: Module base_setup loaded in 0.05s, 154 queries (+154 other)
+2026-10-30 20:07:04,209 1 INFO diag_tests_20 odoo.modules.loading: Loading module bus (11/17)
+2026-10-30 20:07:04,228 1 INFO diag_tests_20 odoo.registry: module bus: creating or updating database tables
+2026-10-30 20:07:04,267 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:04,271 1 INFO diag_tests_20 odoo.modules.loading: Module bus loaded in 0.06s, 128 queries (+128 other)
+2026-10-30 20:07:04,271 1 INFO diag_tests_20 odoo.modules.loading: Loading module mysubscription (12/17)
+2026-10-30 20:07:04,274 1 INFO diag_tests_20 odoo.registry: module mysubscription: creating or updating database tables
+2026-10-30 20:07:04,280 1 INFO diag_tests_20 odoo.modules.loading: loading mysubscription/data/ir_config_parameter_data.xml
+2026-10-30 20:07:04,281 1 INFO diag_tests_20 odoo.modules.loading: loading mysubscription/views/menus.xml
+2026-10-30 20:07:04,285 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:04,286 1 INFO diag_tests_20 odoo.modules.loading: Module mysubscription loaded in 0.01s, 36 queries (+36 other)
+2026-10-30 20:07:04,286 1 INFO diag_tests_20 odoo.modules.loading: Loading module web_tour (13/17)
+2026-10-30 20:07:04,290 1 INFO diag_tests_20 odoo.registry: module web_tour: creating or updating database tables
+2026-10-30 20:07:04,291 1 INFO diag_tests_20 odoo.fields: Prepare computation of res.users.tour_enabled in 4 records
+2026-10-30 20:07:04,319 1 INFO diag_tests_20 odoo.modules.loading: loading web_tour/views/tour_views.xml
+2026-10-30 20:07:04,331 1 INFO diag_tests_20 odoo.modules.loading: loading web_tour/security/ir.access.csv
+2026-10-30 20:07:04,341 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:04,343 1 INFO diag_tests_20 odoo.modules.loading: Module web_tour loaded in 0.06s, 206 queries (+206 other)
+2026-10-30 20:07:04,343 1 INFO diag_tests_20 odoo.modules.loading: Loading module auth_passkey (14/17)
+2026-10-30 20:07:04,371 1 INFO diag_tests_20 odoo.registry: module auth_passkey: creating or updating database tables
+2026-10-30 20:07:04,395 1 INFO diag_tests_20 odoo.modules.loading: loading auth_passkey/views/auth_passkey_key_views.xml
+2026-10-30 20:07:04,404 1 INFO diag_tests_20 odoo.modules.loading: loading auth_passkey/views/auth_passkey_login_templates.xml
+2026-10-30 20:07:04,409 1 INFO diag_tests_20 odoo.modules.loading: loading auth_passkey/views/res_users_identitycheck_views.xml
+2026-10-30 20:07:04,413 1 INFO diag_tests_20 odoo.modules.loading: loading auth_passkey/views/res_users_views.xml
+2026-10-30 20:07:04,421 1 INFO diag_tests_20 odoo.modules.loading: loading auth_passkey/security/ir.access.csv
+2026-10-30 20:07:04,433 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:04,435 1 INFO diag_tests_20 odoo.modules.loading: Module auth_passkey loaded in 0.09s, 214 queries (+214 other)
+2026-10-30 20:07:04,435 1 INFO diag_tests_20 odoo.modules.loading: Loading module html_editor (15/17)
+2026-10-30 20:07:04,483 1 WARNING diag_tests_20 odoo.addons.mail.controllers.attachment: markdown2 is not installed, markdown will not be rendered
+2026-10-30 20:07:04,507 1 INFO diag_tests_20 odoo.registry: module html_editor: creating or updating database tables
+2026-10-30 20:07:04,686 1 INFO diag_tests_20 odoo.modules.loading: loading html_editor/security/ir.access.csv
+2026-10-30 20:07:04,711 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:04,714 1 INFO diag_tests_20 odoo.modules.loading: Module html_editor loaded in 0.28s, 1220 queries (+1220 other)
+2026-10-30 20:07:04,714 1 INFO diag_tests_20 odoo.modules.loading: Loading module iap (16/17)
+2026-10-30 20:07:04,716 1 INFO diag_tests_20 odoo.registry: module iap: creating or updating database tables
+2026-10-30 20:07:04,749 1 INFO diag_tests_20 odoo.modules.loading: loading iap/data/services.xml
+2026-10-30 20:07:04,752 1 INFO diag_tests_20 odoo.modules.loading: loading iap/views/iap_views.xml
+2026-10-30 20:07:04,765 1 INFO diag_tests_20 odoo.modules.loading: loading iap/views/res_config_settings.xml
+2026-10-30 20:07:04,770 1 INFO diag_tests_20 odoo.modules.loading: loading iap/views/res_users_views.xml
+2026-10-30 20:07:04,773 1 INFO diag_tests_20 odoo.modules.loading: loading iap/security/ir.access.csv
+2026-10-30 20:07:04,787 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:04,789 1 INFO diag_tests_20 odoo.modules.loading: Module iap loaded in 0.08s, 238 queries (+238 other)
+2026-10-30 20:07:04,789 1 INFO diag_tests_20 odoo.modules.loading: Loading module web_unsplash (17/17)
+2026-10-30 20:07:04,793 1 INFO diag_tests_20 odoo.registry: module web_unsplash: creating or updating database tables
+2026-10-30 20:07:04,808 1 INFO diag_tests_20 odoo.modules.loading: loading web_unsplash/views/res_config_settings_view.xml
+2026-10-30 20:07:04,822 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:04,823 1 INFO diag_tests_20 odoo.modules.loading: Module web_unsplash loaded in 0.03s, 100 queries (+100 other)
+2026-10-30 20:07:04,823 1 INFO diag_tests_20 odoo.modules.loading: 17 modules loaded in 1.35s, 5340 queries (+5346 extra)
+2026-10-30 20:07:04,905 1 INFO diag_tests_20 odoo.modules.loading: Modules loaded.
+2026-10-30 20:07:04,907 1 INFO diag_tests_20 odoo.registry: Registry changed, signaling through the database
+2026-10-30 20:07:04,907 1 INFO diag_tests_20 odoo.registry: Registry loaded in 4.680s
+2026-10-30 20:07:04,908 1 INFO diag_tests_20 odoo.service.server: Starting post tests
+2026-10-30 20:07:04,915 1 INFO diag_tests_20 odoo.registry: Reloading the model registry after database signaling.
+2026-10-30 20:07:04,918 1 INFO diag_tests_20 odoo.modules.loading: loading 1 modules...
+2026-10-30 20:07:04,920 1 INFO diag_tests_20 odoo.modules.loading: 1 modules loaded in 0.00s, 0 queries (+0 extra)
+2026-10-30 20:07:04,920 1 INFO diag_tests_20 odoo.modules.loading: loading 17 modules...
+2026-10-30 20:07:04,923 1 INFO diag_tests_20 odoo.modules.loading: 17 modules loaded in 0.00s, 0 queries (+0 extra)
+2026-10-30 20:07:04,944 1 INFO diag_tests_20 odoo.modules.loading: Modules loaded.
+2026-10-30 20:07:04,948 1 INFO diag_tests_20 odoo.registry: Registry loaded in 0.033s
+2026-10-30 20:07:04,948 1 INFO diag_tests_20 odoo.addons.base.models.ir_qweb: Pregenerating assets bundles
+2026-10-30 20:07:05,352 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/34939c2/api_doc.assets.min.js (id:15)
+2026-10-30 20:07:05,359 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/084158e/bus.websocket_worker_assets.min.js (id:16)
+2026-10-30 20:07:05,362 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/fb2d7ce/html_editor.assets_history_diff.min.js (id:17)
+2026-10-30 20:07:05,365 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/8fc7220/html_editor.assets_image_cropper.min.js (id:18)
+2026-10-30 20:07:05,405 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/0cc5dc2/web.__assets_tests_call__.min.js (id:19)
+2026-10-30 20:07:05,412 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/0bc0633/web.ace_lib.min.js (id:20)
+2026-10-30 20:07:05,418 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/a81437c/web.assets_clickbot.min.js (id:21)
+2026-10-30 20:07:05,468 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/03b4964/web.assets_emoji.min.js (id:22)
+2026-10-30 20:07:05,561 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/f8f0d0b/web.assets_frontend_lazy.min.js (id:23)
+2026-10-30 20:07:05,564 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/b753540/web.assets_frontend_minimal.min.js (id:24)
+2026-10-30 20:07:05,566 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/df759d4/web.assets_tests.min.js (id:25)
+2026-10-30 20:07:06,827 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/dc2f704/web.assets_unit_tests.min.js (id:26)
+2026-10-30 20:07:07,390 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/15b38b2/web.assets_unit_tests_setup.min.js (id:27)
+2026-10-30 20:07:07,451 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/d0f39f5/web.assets_web.min.js (id:28)
+2026-10-30 20:07:07,458 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/e6fc179/web.chartjs_lib.min.js (id:29)
+2026-10-30 20:07:07,463 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/4b72ca1/web.fullcalendar_lib.min.js (id:30)
+2026-10-30 20:07:07,464 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web.material_symbols_outlined.min.js (id:31)
+2026-10-30 20:07:07,465 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web.odoo_ui_icons.min.js (id:32)
+2026-10-30 20:07:07,474 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/d3eb072/web.report_assets_common.min.js (id:33)
+2026-10-30 20:07:07,475 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web.report_assets_pdf.min.js (id:34)
+2026-10-30 20:07:07,477 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/e4f090d/web_tour.interactive.min.js (id:35)
+2026-10-30 20:07:07,479 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/af15882/web_tour.recorder.min.js (id:36)
+2026-10-30 20:07:07,479 1 INFO diag_tests_20 odoo.addons.base.models.ir_qweb: JS Assets bundles generated in 2.381371021270752 seconds
+2026-10-30 20:07:07,480 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/6a3f7ef/web.material_symbols_outlined.min.woff2 (id:37)
+2026-10-30 20:07:07,481 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/b22a093/web.odoo_ui_icons.min.woff2 (id:38)
+2026-10-30 20:07:07,482 1 INFO diag_tests_20 odoo.addons.base.models.ir_qweb: Binary Assets bundles generated in 0.002521038055419922 seconds
+2026-10-30 20:07:07,718 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/a261cfa/api_doc.assets.min.css (id:39)
+2026-10-30 20:07:07,719 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/bus.websocket_worker_assets.min.css (id:40)
+2026-10-30 20:07:07,721 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/684f69b/html_editor.assets_history_diff.min.css (id:41)
+2026-10-30 20:07:07,723 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/8392e75/html_editor.assets_image_cropper.min.css (id:42)
+2026-10-30 20:07:07,723 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web.__assets_tests_call__.min.css (id:43)
+2026-10-30 20:07:07,724 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web.ace_lib.min.css (id:44)
+2026-10-30 20:07:07,725 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web.assets_clickbot.min.css (id:45)
+2026-10-30 20:07:07,726 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web.assets_emoji.min.css (id:46)
+2026-10-30 20:07:08,059 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/7fa71c2/web.assets_frontend.min.css (id:47)
+2026-10-30 20:07:08,372 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/7fa71c2/web.assets_frontend_lazy.min.css (id:48)
+2026-10-30 20:07:08,373 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web.assets_frontend_minimal.min.css (id:49)
+2026-10-30 20:07:08,374 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web.assets_tests.min.css (id:50)
+2026-10-30 20:07:08,375 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/4368020/web.assets_unit_tests.min.css (id:51)
+2026-10-30 20:07:08,903 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/36f0fe8/web.assets_unit_tests_setup.min.css (id:52)
+2026-10-30 20:07:09,466 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/35a235c/web.assets_web.min.css (id:53)
+2026-10-30 20:07:10,021 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/dfcbf46/web.assets_web_dark.min.css (id:54)
+2026-10-30 20:07:10,632 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/b0369f3/web.assets_web_print.min.css (id:55)
+2026-10-30 20:07:10,633 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web.chartjs_lib.min.css (id:56)
+2026-10-30 20:07:10,634 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web.fullcalendar_lib.min.css (id:57)
+2026-10-30 20:07:10,635 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/30b0281/web.material_symbols_outlined.min.css (id:58)
+2026-10-30 20:07:10,636 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/08fd4ec/web.odoo_ui_icons.min.css (id:59)
+2026-10-30 20:07:10,910 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/1dd1399/web.report_assets_common.min.css (id:60)
+2026-10-30 20:07:10,912 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/451acf8/web.report_assets_pdf.min.css (id:61)
+2026-10-30 20:07:10,913 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web_tour.interactive.min.css (id:62)
+2026-10-30 20:07:10,913 1 INFO diag_tests_20 odoo.addons.base.models.assetsbundle: Generating a new asset bundle attachment /web/assets/cf83e13/web_tour.recorder.min.css (id:63)
+2026-10-30 20:07:10,914 1 INFO diag_tests_20 odoo.addons.base.models.ir_qweb: CSS Assets bundles generated in 3.43173885345459 seconds
+2026-10-30 20:07:10,923 1 INFO diag_tests_20 odoo.addons.diag_tests.tests.test_things: Starting TestThings.test_errors ...
+2026-10-30 20:07:10,924 1 INFO diag_tests_20 odoo.addons.diag_tests.tests.test_things: ======================================================================
+2026-10-30 20:07:10,924 1 ERROR diag_tests_20 odoo.addons.diag_tests.tests.test_things: ERROR: TestThings.test_errors
+Traceback (most recent call last):
+  File "/mnt/extra/0/diag_tests/tests/test_things.py", line 15, in test_errors
+    self.env['res.partner'].browse(1).no_such_method()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'res.partner' object has no attribute 'no_such_method'
+
+2026-10-30 20:07:10,924 1 INFO diag_tests_20 odoo.addons.diag_tests.tests.test_things: Starting TestThings.test_fails ...
+2026-10-30 20:07:10,928 1 INFO diag_tests_20 odoo.addons.diag_tests.tests.test_things: ======================================================================
+2026-10-30 20:07:10,928 1 ERROR diag_tests_20 odoo.addons.diag_tests.tests.test_things: FAIL: TestThings.test_fails
+Traceback (most recent call last):
+  File "/mnt/extra/0/diag_tests/tests/test_things.py", line 12, in test_fails
+    self.assertEqual(partner.name, 'Something else', "partner name should match")
+AssertionError: 'Diag' != 'Something else'
+- Diag
++ Something else
+ : partner name should match
+
+2026-10-30 20:07:10,928 1 INFO diag_tests_20 odoo.addons.diag_tests.tests.test_things: Starting TestThings.test_passes ...
+2026-10-30 20:07:10,931 1 INFO diag_tests_20 odoo.addons.base.models.ir_attachment: filestore gc 35 checked, 0 removed
+2026-10-30 20:07:10,931 1 INFO diag_tests_20 odoo.addons.diag_tests.tests.test_things: Starting TestAtInstall.test_at_install_passes ...
+2026-10-30 20:07:10,932 1 INFO diag_tests_20 odoo.addons.base.models.ir_attachment: filestore gc 0 checked, 0 removed
+2026-10-30 20:07:10,933 1 INFO diag_tests_20 odoo.addons.diag_tests.tests.test_things: Starting TestHttp.test_tour ...
+2026-10-30 20:07:10,970 1 WARNING diag_tests_20 odoo.addons.diag_tests.tests.test_things.TestHttp.test_tour: websocket-client module is not installed
+2026-10-30 20:07:10,970 1 INFO diag_tests_20 odoo.addons.diag_tests.tests.test_things: skipped TestHttp.test_tour : websocket-client module is not installed
+2026-10-30 20:07:10,970 1 INFO diag_tests_20 odoo.addons.diag_tests.tests.test_things: Starting TestHttp.test_url ...
+2026-10-30 20:07:10,975 1 INFO diag_tests_20 odoo.addons.base.models.ir_http: Generating routing map for key None
+2026-10-30 20:07:11,011 1 INFO diag_tests_20 odoo.http.server: 127.0.0.1 F0S68uGE - [30/Oct/2026 20:07:11] "GET /web/login HTTP/1.1" 200 5797 30 0.005 0.034 rw
+2026-10-30 20:07:11,013 1 INFO diag_tests_20 odoo.addons.base.models.ir_attachment: filestore gc 0 checked, 0 removed
+2026-10-30 20:07:11,014 1 INFO diag_tests_20 odoo.tests.suite: Auto retry disabled for test_unit_desktop (odoo.addons.web.tests.test_js.WebSuite.test_unit_desktop)
+2026-10-30 20:07:11,014 1 INFO diag_tests_20 odoo.addons.web.tests.test_js: Starting WebSuite.test_unit_desktop ...
+2026-10-30 20:07:11,015 1 INFO diag_tests_20 odoo.addons.base.models.ir_attachment: filestore gc 0 checked, 0 removed
+2026-10-30 20:07:11,016 1 INFO diag_tests_20 odoo.tests.suite: Auto retry disabled for test_unit_mobile (odoo.addons.web.tests.test_js.MobileWebSuite.test_unit_mobile)
+2026-10-30 20:07:11,016 1 INFO diag_tests_20 odoo.addons.web.tests.test_js: Starting MobileWebSuite.test_unit_mobile ...
+2026-10-30 20:07:11,017 1 INFO diag_tests_20 odoo.addons.base.models.ir_attachment: filestore gc 0 checked, 0 removed
+2026-10-30 20:07:11,017 1 INFO diag_tests_20 odoo.service.server: 8 post-tests in 6.11s, 472 queries
+2026-10-30 20:07:11,017 1 INFO diag_tests_20 odoo.tests.stats: diag_tests: 12 tests 0.09s 55 queries
+2026-10-30 20:07:11,017 1 INFO diag_tests_20 odoo.tests.stats: web: 6 tests 0.00s 12 queries
+2026-10-30 20:07:11,017 1 ERROR diag_tests_20 odoo.tests.result: 1 failed, 1 error(s) of 9 tests when loading database 'diag_tests_20'
+2026-10-30 20:07:11,018 1 INFO diag_tests_20 odoo.service.server.ThreadedServer: Error: odoo.addons.diag_tests.tests.test_things.TestThings.test_errors - 'res.partner' object has no attribute [...]
+2026-10-30 20:07:11,018 1 INFO diag_tests_20 odoo.service.server.ThreadedServer: Failed: odoo.addons.diag_tests.tests.test_things.TestThings.test_fails - 'Diag' != 'Something else' - Diag + [...]
+2026-10-30 20:07:11,018 1 INFO diag_tests_20 odoo.service.server.ThreadedServer: Initiating shutdown
+2026-10-30 20:07:11,018 1 INFO diag_tests_20 odoo.service.server.ThreadedServer: Hit CTRL-C again or send a second signal to force the shutdown.
+2026-10-30 20:07:11,018 1 INFO diag_tests_20 odoo.addons.bus.websocket: Disconnecting 0 websockets
+2026-10-30 20:07:11,123 1 INFO diag_tests_20 odoo.sql_db: ConnectionPool(read/write;used=0/count=0/max=64): Closed 2 connections 

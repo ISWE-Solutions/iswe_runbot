@@ -4,7 +4,9 @@
 const { expect } = require("@playwright/test");
 
 const EMAIL = process.env.E2E_EMAIL || "admin@preview.localhost"; // local dev login only
-const PASSWORD = process.env.E2E_PASSWORD || "Preview-Admin-2026";
+// Never commit a password here: export E2E_PASSWORD before running the suite.
+const PASSWORD = process.env.E2E_PASSWORD;
+if (!PASSWORD) throw new Error("Set E2E_PASSWORD to the dashboard login of E2E_EMAIL to run the e2e tests");
 
 async function login(page, email = EMAIL, password = PASSWORD) {
   await page.goto("/login");

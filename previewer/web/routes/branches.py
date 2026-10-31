@@ -231,20 +231,23 @@ async def save_settings(bid: int, request: Request, s: Session = Depends(get_db)
         if module_set is None:
             errors["modules_override"] = "Choose a module set of this project"
     demo = {"default": None, "on": True, "off": False}.get(form.get("demo_data_override") or "default")
+    run_tests = {"default": None, "on": True, "off": False}.get(form.get("run_tests_override") or "default")
     if errors:
         return render(request, "branch_settings.html", _settings_ctx(s, b, errors), status_code=400)
-    before = (b.effective_version, b.effective_modules, b.effective_demo, _resolved(b))
+    before = (b.effective_version, b.effective_modules, b.effective_demo, b.effective_run_tests, _resolved(b))
     if version == b.project.default_odoo_version:
         version = None
     b.odoo_version_override, b.modules_override, b.demo_data_override = version, modules, demo
     b.module_set = module_set
+    b.run_tests_override = run_tests
     dep_ids = {str(d.id) for d in b.project.dependencies}
     b.dependency_branches = {k[4:]: v.strip() for k, v in form.items()
                              if k.startswith("dep_") and k[4:] in dep_ids and v.strip()}
     b.auto_rebuild = form.get("auto_rebuild") in ("on", "true", "1")
     was_enabled = b.enabled
     s.flush()
-    changed = (b.effective_version, b.effective_modules, b.effective_demo, _resolved(b)) != before
+    changed = (b.effective_version, b.effective_modules, b.effective_demo, b.effective_run_tests,
+               _resolved(b)) != before
     if not (form.get("enabled") in ("on", "true", "1")):
         if was_enabled:
             selection.unselect(s, b)

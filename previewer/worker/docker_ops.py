@@ -26,6 +26,7 @@ SRC, EXTRA, ENTERPRISE, CONF, DATA = "/mnt/src", "/mnt/extra", "/mnt/enterprise"
 _SECOND = 1_000_000_000
 # Docker's own probe; filtered out of the runtime log so it does not drown real requests.
 HEALTH_PATH = "/web/health"
+TIMED_OUT = "health check timed out"
 
 
 log_ = logging.getLogger(__name__)
@@ -70,15 +71,17 @@ def addons_path(n_extra: int, enterprise: bool, with_src: bool = True) -> str:
     return ",".join(paths)
 
 
-def render_conf(*, db_name: str, admin_passwd: str, addons: str) -> str:
+def render_conf(*, db_name: str, admin_passwd: str, addons: str, db_user: str, db_password: str) -> str:
+    """odoo.conf for one build or template; `db_user` is its own Postgres role (worker/pg.py)."""
     c = get_settings()
     opts = {
         "admin_passwd": admin_passwd,
         "db_host": c.postgres_host,
         "db_port": c.postgres_port,
-        "db_user": c.odoo_db_user,
-        "db_password": c.odoo_db_password,
+        "db_user": db_user,
+        "db_password": db_password,
         "db_name": db_name,
+        "db_maxconn": c.odoo_db_maxconn,
         "dbfilter": f"^{db_name}$",
         "list_db": "False",
         "addons_path": addons,
@@ -98,7 +101,7 @@ def preview_labels(build_id: int, branch_id: int, host: str) -> dict[str, str]:
     r = f"pv-{build_id}"
     labels = {
         "traefik.enable": "true",
-        "traefik.docker.network": c.docker_network,
+        "traefik.docker.network": c.preview_network,
         f"traefik.http.routers.{r}.rule": f"Host(`{host}`)",
         f"traefik.http.routers.{r}.entrypoints": "websecure" if c.tls_enabled else "web",
         # Newer builds win while old and new briefly share the host during a swap.
@@ -218,7 +221,7 @@ def run_init(*, image: str, build_id: int, args: list[str], mounts_: list[Mount]
     name = name or f"pv-{build_id}-init"
     remove_container(name)
     ctr = dc.containers.create(image, command=["odoo", *args], name=name, mounts=mounts_,
-                               network=c.docker_network, mem_limit=mem_limit,
+                               network=c.preview_network, mem_limit=mem_limit,
                                labels={"previewer.build_id": str(build_id), "previewer.role": "init"})
     try:
         ctr.start()
@@ -241,30 +244,58 @@ def run_init(*, image: str, build_id: int, args: list[str], mounts_: list[Mount]
         remove_container(name)
 
 
+def check_preview_network() -> None:
+    """The previews' own network must exist (Compose creates it); never fall back to the
+    control network, where branch code could reach the Docker socket proxy."""
+    name = get_settings().preview_network
+    try:
+        client().networks.get(name)
+    except NotFound:
+        raise RuntimeError(f"Docker network {name} is missing: run `docker compose up -d` with the "
+                           "current docker-compose.yml (it defines the previews network)") from None
+
+
+def healthcheck(health_timeout_s: int) -> dict:
+    """Docker's own probe; its start period follows the start-up time limit."""
+    test = ("import urllib.request; "
+            f"urllib.request.urlopen('http://localhost:{ODOO_PORT}{HEALTH_PATH}', timeout=5)")
+    return {"test": ["CMD", "python3", "-c", test], "interval": 5 * _SECOND, "timeout": 6 * _SECOND,
+            "retries": 3, "start_period": max(30, health_timeout_s) * _SECOND}
+
+
+def preview_command(db_name: str) -> list[str]:
+    return ["odoo", "--database", db_name, "--db-filter", f"^{db_name}$", "--no-database-list",
+            "--workers", "0", "--proxy-mode"]
+
+
 def run_preview(*, image: str, build_id: int, branch_id: int, host: str, db_name: str,
-                mounts_: list[Mount], mem_limit: str, cpus: float):
+                mounts_: list[Mount], mem_limit: str, cpus: float, health_timeout_s: int = 120,
+                start: bool = True):
+    """The long-running preview container, on the preview network only."""
     c = get_settings()
     name = container_name(build_id)
     remove_container(name)
-    health = (
-        "import urllib.request; "
-        f"urllib.request.urlopen('http://localhost:{ODOO_PORT}{HEALTH_PATH}', timeout=5)"
-    )
-    return client().containers.run(
+    ctr = client().containers.create(
         image,
-        command=["odoo", "--database", db_name, "--db-filter", f"^{db_name}$", "--no-database-list",
-                 "--workers", "0", "--proxy-mode"],
+        command=preview_command(db_name),
         name=name,
-        detach=True,
         mounts=mounts_,
-        network=c.docker_network,
+        network=c.preview_network,
         mem_limit=mem_limit,
         nano_cpus=int(cpus * _SECOND),
         restart_policy={"Name": "unless-stopped"},
         labels=preview_labels(build_id, branch_id, host),
-        healthcheck={"test": ["CMD", "python3", "-c", health], "interval": 5 * _SECOND,
-                     "timeout": 6 * _SECOND, "retries": 3, "start_period": 120 * _SECOND},
+        healthcheck=healthcheck(health_timeout_s),
     )
+    if start:
+        ctr.start()
+    return ctr
+
+
+def mounts_of(ctr) -> list[Mount]:
+    """The bind mounts of an existing container, to recreate it."""
+    return [Mount(m["Destination"], m["Source"], type="bind", read_only=not m.get("RW", True))
+            for m in ctr.attrs.get("Mounts", []) if m.get("Type") == "bind"]
 
 
 def container_state(ctr_or_name) -> dict:
@@ -278,9 +309,22 @@ def container_state(ctr_or_name) -> dict:
     return {"oom": bool(st.get("OOMKilled")), "exit_code": st.get("ExitCode"), "status": ctr.status}
 
 
+def crashed(ctr) -> str | None:
+    """Why a starting preview is not going to come up by itself, or None."""
+    st = ctr.attrs.get("State", {})
+    if ctr.status in ("exited", "dead"):
+        return f"container exited (code {st.get('ExitCode')})"
+    if ctr.status == "restarting" or ctr.attrs.get("RestartCount", 0) > 0:
+        return (f"container keeps crashing (exit code {st.get('ExitCode')}"
+                f"{', out of memory' if st.get('OOMKilled') else ''}; restarted "
+                f"{ctr.attrs.get('RestartCount', 0)}x)")
+    return None
+
+
 def wait_healthy(name: str, timeout_s: int) -> str | None:
     """Poll /web/login until 200 and Docker reports healthy (Traefik routes only healthy
-    containers). Returns None on success, else the reason."""
+    containers). Returns None on success, else the reason; a crash-looping container fails
+    at once instead of using up the whole time limit."""
     deadline = time.monotonic() + timeout_s
     http_ok = False
     reason = "timed out"
@@ -289,8 +333,9 @@ def wait_healthy(name: str, timeout_s: int) -> str | None:
             ctr = client().containers.get(name)
         except NotFound:
             return "container disappeared"
-        if ctr.status in ("exited", "dead"):
-            return f"container exited (code {ctr.attrs['State'].get('ExitCode')})"
+        problem = crashed(ctr)
+        if problem:
+            return problem
         if not http_ok:
             try:
                 r = httpx.get(f"http://{name}:{ODOO_PORT}/web/login", timeout=5)
@@ -301,7 +346,16 @@ def wait_healthy(name: str, timeout_s: int) -> str | None:
         if http_ok and ctr.attrs["State"].get("Health", {}).get("Status") == "healthy":
             return None
         time.sleep(2)
-    return f"health check {reason} after {timeout_s}s"
+    return f"{TIMED_OUT} ({reason}) after {timeout_s}s"
+
+
+def still_starting(name: str, problem: str | None) -> bool:
+    """A start-up check that only ran out of time while the container is still up: Odoo may
+    just be slow (first start of a new version compiles its assets), worth one more wait."""
+    if not problem or not problem.startswith(TIMED_OUT):
+        return False
+    ctr = get_container(name)
+    return ctr is not None and ctr.status == "running" and crashed(ctr) is None
 
 
 def get_container(name_or_id: str):
@@ -356,6 +410,16 @@ def _lines(chunks):
 def preview_containers() -> list:
     """Every preview/init container this system created (any state)."""
     return client().containers.list(all=True, filters={"label": "previewer.build_id"})
+
+
+def running_previews() -> dict[int, object]:
+    """{build_id: container} of every running long-lived preview container (not init ones)."""
+    out = {}
+    for ctr in client().containers.list(filters={"label": "previewer.build_id", "status": "running"}):
+        bid = ctr.labels.get("previewer.build_id", "")
+        if bid.isdigit() and ctr.labels.get("previewer.role") != "init" and ctr.name == container_name(int(bid)):
+            out[int(bid)] = ctr
+    return out
 
 
 def mounted_sources(containers) -> set[str]:

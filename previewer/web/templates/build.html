@@ -2,6 +2,7 @@
 {% from "_macros.html" import badge, client_tabs, csrf with context %}
 {% from "_install_plan.html" import install_plan %}
 {% from "_why.html" import why_panel with context %}
+{% from "_tests.html" import tests_panel with context %}
 {% block title %}Build {{ build.id }} · {{ branch.name }}{% endblock %}
 {% block content %}
 <a href="/branches/{{ branch.id }}" class="text-sm text-indigo-600 hover:underline">← {{ project.name }} / {{ branch.name }}</a>
@@ -21,8 +22,9 @@
 {% set why_lines = dependency_lines(build.error_summary, 10) if build.status == 'failed' and not findings else [] %}
 {% set plan = plan_from_dict(build.install_plan) %}
 <div class="mt-5">
+{% set tfail = test_failed_count(build) %}
 {{ client_tabs('build', ([('why', 'Why it failed', findings|length or (1 if why_lines else none), 'alert')] if build.status == 'failed' else [])
-   + [('plan', 'Install plan'), ('log', 'Log'), ('details', 'Details')], tab, 'Build sections') }}
+   + [('tests', 'Tests', tfail or none, 'alert'), ('plan', 'Install plan'), ('log', 'Log'), ('details', 'Details')], tab, 'Build sections') }}
 </div>
 
 {% if build.status == 'failed' %}
@@ -39,6 +41,10 @@
   {% endif %}
 </section>
 {% endif %}
+
+<section data-tab-panel="build:tests">
+{{ tests_panel(build) }}
+</section>
 
 <section data-tab-panel="build:plan">
 {% if plan %}<div>{{ install_plan(plan, explain_plan(build.install_plan, project.edition) if not why_lines else '', grouped_install(plan)) }}</div>{% endif %}

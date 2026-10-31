@@ -46,9 +46,11 @@ def test_split_modules():
 def test_addons_path_and_conf():
     assert docker_ops.addons_path(2, True) == "/mnt/enterprise,/mnt/extra/0,/mnt/extra/1,/mnt/src"
     assert docker_ops.addons_path(0, False) == "/mnt/src"
-    conf = docker_ops.render_conf(db_name="p_v18_abc_b1", admin_passwd="s3cret", addons="/mnt/src")
+    conf = docker_ops.render_conf(db_name="p_v18_abc_b1", admin_passwd="s3cret", addons="/mnt/src",
+                                  db_user="pv_b1", db_password="pw")
     assert conf.startswith("[options]\n")
     for line in ("dbfilter = ^p_v18_abc_b1$", "list_db = False", "admin_passwd = s3cret",
+                 "db_user = pv_b1", "db_password = pw", "db_maxconn = 12",
                  "db_host = postgres", "addons_path = /mnt/src", "proxy_mode = True", "workers = 0"):
         assert line in conf
 
@@ -318,5 +320,5 @@ def test_duplicate_modules_across_parts(tmp_path):
 
 
 def test_preview_config_listens_on_all_interfaces():
-    conf = docker_ops.render_conf(db_name="d", admin_passwd="x", addons="/mnt/src")
+    conf = docker_ops.render_conf(db_name="d", admin_passwd="x", addons="/mnt/src", db_user="u", db_password="p")
     assert "http_interface = 0.0.0.0" in conf  # Odoo 20 defaults to 127.0.0.1

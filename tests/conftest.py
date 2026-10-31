@@ -56,6 +56,24 @@ def clean_tables(test_database):
 
 
 @pytest.fixture(autouse=True)
+def own_data_dir(tmp_path, monkeypatch):
+    """Tests never read the live worker's files (worker.heartbeat reports the real Docker host's
+    memory, which the capacity checks would apply to test settings)."""
+    monkeypatch.setattr(get_settings(), "data_dir", tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def no_preview_roles(request, monkeypatch):
+    """Build tests never create Postgres roles or preview databases; tests marked `real_pg`
+    exercise worker/pg.py against the test server."""
+    if request.node.get_closest_marker("real_pg"):
+        return
+    from previewer.worker import pg
+    for name in ("ensure_role", "drop_role", "disable_login", "create_empty_database"):
+        monkeypatch.setattr(pg, name, lambda *a, **k: None)
+
+
+@pytest.fixture(autouse=True)
 def no_github(monkeypatch):
     """Tests never reach GitHub; tests that need it monkeypatch github functions themselves."""
     from previewer import deps, github

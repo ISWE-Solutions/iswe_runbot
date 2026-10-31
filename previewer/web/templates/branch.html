@@ -2,6 +2,7 @@
 {% from "_macros.html" import badge, pager, csrf, tabs with context %}
 {% from "_install_plan.html" import install_plan %}
 {% from "_why.html" import why_summary with context %}
+{% from "_tests.html" import test_line with context %}
 {% block title %}{{ branch.name }} · {{ project.name }}{% endblock %}
 {% set btn = "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50" %}
 {% block content %}
@@ -39,6 +40,7 @@
       <p class="mt-2 text-sm text-gray-700">No preview is running for this branch.</p>
     {% endif %}
     {% if branch.host %}{% set fp = friendly_path(branch) %}<p class="mt-2 text-sm">Friendly link: <a class="text-indigo-600 hover:underline" href="{{ fp }}">{{ fp }}</a></p>{% endif %}
+    {{ test_line(branch) }}
     {% if latest and latest.status == 'failed' %}
       {{ why_summary(latest, 'Last build failed' ~ ((' (Odoo ' ~ latest.odoo_version ~ '); Odoo ' ~ live.odoo_version ~ ' build ' ~ live.short_sha ~ ' is still ' ~ live.status) if live else '')) }}
     {% endif %}

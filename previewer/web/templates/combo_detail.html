@@ -2,6 +2,7 @@
 {% from "_macros.html" import badge, csrf, pager, tabs with context %}
 {% from "_install_plan.html" import install_plan %}
 {% from "_why.html" import why_summary with context %}
+{% from "_tests.html" import test_line with context %}
 {% block title %}{{ project.name }} · {{ 'plain Odoo' if project.is_plain else 'combined preview' }}{% endblock %}
 {% set btn = "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50" %}
 {% block content %}
@@ -67,6 +68,7 @@
     {% elif latest and latest.status in ('queued', 'building') %}<p class="mt-2 text-sm text-gray-700">Building… this page shows the result when it is done (<a class="text-indigo-600 hover:underline" href="/builds/{{ latest.id }}">live log</a>).</p>
     {% else %}<p class="mt-2 text-sm text-gray-700">No preview is running.</p>{% endif %}
     {% if branch.host %}{% set fp = friendly_path(branch) %}<p class="mt-2 text-sm">Friendly link: <a class="text-indigo-600 hover:underline" href="{{ fp }}">{{ fp }}</a></p>{% endif %}
+    {% if not project.is_plain %}{{ test_line(branch) }}{% endif %}
     {% if latest and latest.status == 'failed' %}
       {{ why_summary(latest, 'Last build failed' ~ (('; build #' ~ live.id ~ ' is still ' ~ live.status) if live else '')) }}
     {% endif %}
@@ -160,6 +162,7 @@
     <span class="text-xs text-gray-500">Changing the version, edition, modules or demo data rebuilds on a fresh database.</span>
   </div>
 </form>
+{% if not project.is_plain %}{% include "_project_tests.html" %}{% endif %}
 {% include "_project_access.html" %}
 <form method="post" action="/combos/{{ project.id }}/delete" class="mt-6 rounded-lg border border-red-200 bg-white p-6">
   {{ csrf() }}

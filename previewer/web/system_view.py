@@ -1,12 +1,11 @@
 """System page data: worker heartbeat (disk, Docker, preview resources, scheduler), settings
 groups and validation. The worker writes DATA_DIR/worker.heartbeat; any key may be missing."""
 import json
-import re
 import time
 
 from sqlalchemy.orm import Session
 
-from .. import appsettings
+from .. import appsettings, capacity
 from ..config import get_settings
 from ..db import SessionLocal
 
@@ -16,12 +15,16 @@ HEARTBEAT_STALE_SECONDS = 60
 GROUPS: list[tuple[str, list[tuple[str, str, str, str]]]] = [
     ("Limits", [
         ("max_running_previews", "Previews running at once", "int",
-         "When exceeded, the longest-idle preview is put to sleep."),
+         "When exceeded, the longest-idle preview is put to sleep. Capped to what fits in the "
+         "Docker host's memory."),
         ("max_concurrent_builds", "Builds at the same time", "int",
          "Applies after the worker restarts."),
         ("preview_memory_limit", "Memory per preview", "memory", "e.g. 1536m or 2g"),
         ("preview_cpus", "CPU cores per preview", "float", ""),
         ("build_memory_limit", "Memory per build", "memory", "Installing Enterprise with demo data needs more."),
+        ("memory_overcommit", "Memory overcommit", "float",
+         "1 = previews and builds may never use more than the host has. 2 bets they stay at half "
+         "their limit (more previews, but a busy host may kill containers)."),
     ]),
     ("Builds", [
         ("build_timeout_minutes", "Build time limit (minutes)", "int", ""),
@@ -47,7 +50,6 @@ GROUPS: list[tuple[str, list[tuple[str, str, str, str]]]] = [
          "Build failures and recoveries are posted here. Stored encrypted; blank keeps the current one."),
     ]),
 ]
-MEMORY_RE = re.compile(r"^\d+(\.\d+)?[kmgKMG]?$")
 
 
 def heartbeat() -> dict:
@@ -104,13 +106,69 @@ def validate(form, current: dict[str, str]) -> tuple[dict[str, str], dict[str, s
                 except ValueError:
                     errors[key] = "A number above 0"
                     continue
-            elif kind == "memory" and not MEMORY_RE.match(raw):
-                errors[key] = "Like 1536m or 2g"
-                continue
+            elif kind == "memory":
+                try:
+                    if capacity.parse_memory(raw) < capacity.MIN_MEMORY:
+                        raise ValueError
+                except ValueError:
+                    errors[key] = "Like 1536m or 2g (at least 256m)"
+                    continue
             values[key] = raw
-    if values.get("max_concurrent_builds") == "0":
-        errors["max_concurrent_builds"] = "At least 1"
+    for key in ("max_concurrent_builds", "max_running_previews"):
+        if values.get(key) == "0":
+            errors[key] = "At least 1"
+    if values.get("memory_overcommit") and "memory_overcommit" not in errors \
+            and not 1 <= float(values["memory_overcommit"]) <= 4:
+        errors["memory_overcommit"] = "Between 1 and 4"
+    if not errors:
+        problem = capacity_problem({**current, **values})
+        if problem:
+            errors["max_running_previews"] = problem
     return values, errors
+
+
+def host_memory() -> int | None:
+    """Docker host memory in bytes, from the worker's last stats (None until it has run)."""
+    gb = (heartbeat().get("docker") or {}).get("mem_total_gb")
+    return int(float(gb) * 1e9) if gb else None
+
+
+def running_cap(s: Session, v: dict[str, str]) -> int:
+    """The running limit the worker enforces (automation.running_limit): the setting capped
+    to the Docker host's memory and Postgres' max_connections."""
+    from sqlalchemy import text
+    c = get_settings()
+    try:
+        max_conn = int(s.execute(text("SHOW max_connections")).scalar())
+    except Exception:  # noqa: BLE001 — unknown: memory alone decides
+        max_conn = None
+    try:
+        return capacity.effective_limit(
+            max(1, int(v["max_running_previews"])), host_memory(), preview_mem=v["preview_memory_limit"],
+            builds=max(1, int(v["max_concurrent_builds"])), build_mem=v["build_memory_limit"],
+            reserved=c.reserved_memory, overcommit=float(v.get("memory_overcommit") or 1),
+            maxconn=c.odoo_db_maxconn, max_connections=max_conn)
+    except ValueError:
+        return int(v["max_running_previews"])
+
+
+def capacity_problem(v: dict[str, str]) -> str | None:
+    """Why these limits do not fit the Docker host's memory, or None."""
+    total = host_memory()
+    if not total:
+        return None
+    f = capacity.fit(total=total, previews=int(v["max_running_previews"]),
+                     preview_mem=capacity.parse_memory(v["preview_memory_limit"]),
+                     builds=int(v["max_concurrent_builds"]),
+                     build_mem=capacity.parse_memory(v["build_memory_limit"]),
+                     reserved=capacity.parse_memory(get_settings().reserved_memory),
+                     overcommit=float(v.get("memory_overcommit") or 1))
+    if int(v["max_running_previews"]) <= f.max_previews:
+        return None
+    return (f"Only {f.max_previews} fit: the Docker host has {capacity.fmt_gb(f.total)}"
+            f"{' (with overcommit)' if float(v.get('memory_overcommit') or 1) > 1 else ''}, and these limits "
+            f"could use {capacity.fmt_gb(f.needed)} including {get_settings().reserved_memory} for the "
+            "system. Lower the number, the memory per preview or build, or the builds at once.")
 
 
 def app_setting(key: str) -> str:

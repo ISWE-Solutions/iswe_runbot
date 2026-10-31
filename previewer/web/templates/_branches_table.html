@@ -1,5 +1,6 @@
 {% from "_macros.html" import badge, pager with context %}
 {% from "_why.html" import why_short with context %}
+{% from "_tests.html" import test_badge_html with context %}
 {% set qs = '?q=' ~ (q|urlencode) ~ '&status=' ~ (status|urlencode) ~ '&sel=' ~ sel ~ '&page=' ~ page.page %}
 {% set btn = "rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50" %}
 {% set dev = can(user, 'developer') %}
@@ -104,7 +105,7 @@
             {% if b.odoo_version_override %}<div class="text-xs text-gray-500">override</div>{% endif %}
           </td>
           <td class="px-3 py-3">
-            {% if b.enabled or latest %}{{ badge(latest.status if latest else 'none') }}{% else %}<span class="text-xs text-gray-400">not selected</span>{% endif %}
+            {% if b.enabled or latest %}{{ badge(latest.status if latest else 'none') }} {{ test_badge_html(latest) }}{% else %}<span class="text-xs text-gray-400">not selected</span>{% endif %}
             {% if latest and latest.status == 'failed' %}
               <a href="/builds/{{ latest.id }}" class="block hover:underline">{{ why_short(latest, 'mt-1 line-clamp-3 max-w-xs whitespace-pre-line break-words text-xs text-red-700') }}</a>
             {% endif %}

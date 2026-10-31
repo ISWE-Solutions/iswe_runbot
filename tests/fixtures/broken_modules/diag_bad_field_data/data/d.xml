@@ -1,0 +1,6 @@
+<odoo>
+  <record id="p1" model="res.partner">
+    <field name="name">Diag</field>
+    <field name="x_no_such_field">1</field>
+  </record>
+</odoo>

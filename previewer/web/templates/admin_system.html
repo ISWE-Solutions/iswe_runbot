@@ -43,6 +43,7 @@
   <div class="{{ card }}">
     <h2 class="text-xs font-bold uppercase tracking-wide text-gray-500">Previews</h2>
     <p class="mt-2 text-2xl font-bold text-indigo-700">{{ running }}<span class="text-sm font-normal text-gray-500"> running of {{ max_running }} allowed</span></p>
+    {% if max_running < max_running_setting %}<p class="text-xs text-amber-700">Setting is {{ max_running_setting }}; only {{ max_running }} fit{{ '' if max_running > 1 else 's' }} in this server's memory (Settings: memory per preview, builds at once, overcommit).</p>{% endif %}
     <p class="text-xs text-gray-500">{{ sleeping }} sleeping · {{ builds.get('stopped', 0) }} stopped · {{ builds.get('failed', 0) }} failed builds kept</p>
   </div>
 </div>

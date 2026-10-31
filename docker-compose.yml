@@ -32,10 +32,13 @@ services:
         source: ${DATA_DIR:-/srv/previewer}/logs/traefik
         target: /logs
         bind: { create_host_path: true }
-    networks: [previewer]
+    # Routes to previews over the previews network (their labels name it)
+    networks: [previewer, previews]
     depends_on: [socket-proxy]
 
-  # Read-only Docker API for Traefik; only the worker touches the real socket.
+  # Read-only Docker API for Traefik; only the worker touches the real socket. It can show
+  # every container's environment (secrets from .env), so it must never be on the previews
+  # network: keep it on the control network only.
   socket-proxy:
     image: tecnativa/docker-socket-proxy:0.3
     restart: unless-stopped
@@ -64,7 +67,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-previewer}"]
       interval: 5s
       retries: 20
-    networks: [previewer]
+    # Previews connect with their own role, which can only open their own database
+    networks: [previewer, previews]
 
   app:
     <<: *app
@@ -95,6 +99,8 @@ services:
   worker:
     <<: *app
     command: ["python", "-m", "previewer.worker"]
+    # Checks previews' start-up over the previews network; listens on no port
+    networks: [previewer, previews]
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - type: bind
@@ -106,8 +112,13 @@ services:
         condition: service_healthy
 
 networks:
+  # Control network: Traefik, socket-proxy, Postgres, app, worker. No preview joins it.
   previewer:
     name: previewer_net
+  # Previews and build containers (created by the worker), plus Traefik, Postgres and the
+  # worker. Neither the app nor the socket-proxy is on it.
+  previews:
+    name: previewer_previews
 
 volumes:
   pgdata:

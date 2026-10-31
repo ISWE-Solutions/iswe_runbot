@@ -17,6 +17,8 @@ def defaults() -> dict[str, str]:
         "build_memory_limit": c.build_memory_limit,
         "build_timeout_minutes": str(c.build_timeout_minutes),
         "health_timeout_seconds": str(c.health_timeout_seconds),
+        # 1 = never allow previews more memory than the host has (see capacity.py)
+        "memory_overcommit": "1",
         "stale_after_days": "30",
         "stale_delete_after_days": "60",
         "deleted_branch_grace_hours": "24",

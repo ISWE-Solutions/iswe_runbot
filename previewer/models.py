@@ -14,6 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
+from .security import decrypt, encrypt
 
 
 def utcnow() -> datetime:
@@ -107,15 +108,30 @@ class Project(Base):
     # selected for building (Branch.enabled) only when they match auto_build_regex.
     auto_build_regex: Mapped[str] = mapped_column(String(255), default="")
     branch_exclude_regex: Mapped[str] = mapped_column(String(255), default="")
-    webhook_secret: Mapped[str] = mapped_column(String(64), default="")
+    # Fernet-encrypted like Git tokens; read and set through the `webhook_secret` property
+    webhook_secret_enc: Mapped[str] = mapped_column(String(255), default="", server_default="")
     # Previews need a dashboard login (Traefik forward-auth); off = public client demo
     preview_auth_required: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Run the project's own module tests during the install (--test-enable)
+    run_tests: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # "warn": failed tests keep the preview running with a warning; "fail": the build fails
+    test_failure_mode: Mapped[str] = mapped_column(String(10), default="warn", server_default="warn")
+    # Odoo --test-tags; blank = "/<module>" for each of the project's own modules
+    test_tags: Mapped[str] = mapped_column(String(500), default="", server_default="")
     # Post build results as GitHub commit statuses (shows on pull requests)
     post_commit_status: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     credential: Mapped["GithubCredential | None"] = relationship()
     module_set: Mapped["ModuleSet | None"] = relationship(foreign_keys=[module_set_id], post_update=True)
+
+    @property
+    def webhook_secret(self) -> str:
+        return decrypt(self.webhook_secret_enc or "")
+
+    @webhook_secret.setter
+    def webhook_secret(self, value: str) -> None:
+        self.webhook_secret_enc = encrypt(value or "")
     module_sets: Mapped[list["ModuleSet"]] = relationship(
         back_populates="project", cascade="all, delete-orphan", foreign_keys="ModuleSet.project_id",
         order_by="ModuleSet.name")
@@ -218,6 +234,7 @@ class Branch(Base):
         ForeignKey("odoo_versions.version"), nullable=True
     )
     modules_override: Mapped[str | None] = mapped_column(Text, nullable=True)
+    run_tests_override: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     module_set_id: Mapped[int | None] = mapped_column(
         ForeignKey("module_sets.id", ondelete="SET NULL"), nullable=True)
     demo_data_override: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
@@ -263,6 +280,12 @@ class Branch(Base):
         return self.project.modules_to_install or ""
 
     @property
+    def effective_run_tests(self) -> bool:
+        if self.run_tests_override is not None:
+            return self.run_tests_override
+        return self.project.run_tests
+
+    @property
     def effective_demo(self) -> bool:
         if self.demo_data_override is not None:
             return self.demo_data_override
@@ -303,6 +326,10 @@ class Build(Base):
     # {"requested": [...], "install": [...], "core": [...], "missing": {module: [deps]},
     #  "sources": {module: "payroll_zm repo"}, "top_level": [...]}
     install_plan: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
+    # Module tests: "passed" | "failed" | "skipped" (tests off / nothing to test) | None (not run yet)
+    test_status: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    # testresults.TestReport.as_dict(): totals, failures with file/line/url/traceback, skipped tests
+    test_results: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
     # Why it failed, set by the worker on failure: [diagnose.Finding.as_dict(), ...] most useful first
     diagnosis: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
 

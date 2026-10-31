@@ -47,8 +47,8 @@ Previews are served on `*.preview.localhost` over plain HTTP. Browsers and curl 
 `*.localhost` to your machine, so no DNS setup is needed. Port 80 must be free.
 
 ```bash
-cp .env.example .env          # then fill in SECRET_KEY, ENCRYPTION_KEY, POSTGRES_PASSWORD,
-                              # ODOO_DB_PASSWORD, DATA_DIR=<absolute path>/data, DOMAIN=preview.localhost
+cp .env.example .env          # then fill in SECRET_KEY (32+ characters), ENCRYPTION_KEY, POSTGRES_PASSWORD,
+                              # DATA_DIR=<absolute path>/data, DOMAIN=preview.localhost
 docker compose up -d --build  # also loads docker-compose.override.yml (live code reload)
 docker compose exec app python -m previewer.cli create-user --email you@example.com --role admin
 ```
@@ -164,14 +164,24 @@ Shown with their last result on **System** (admin); every value below is editabl
 |---|---|---|
 | poll | every 5 min | Sync every project (fallback for the GitHub webhook) |
 | visits | 30 s | Read Traefik's access log; record each preview's last visit |
-| sleep_idle | 1 min | Stop previews idle for 3 h (database kept); keep at most 25 running |
+| sleep_idle | 1 min | Stop previews idle for 3 h (database kept); keep at most 25 running, capped to what fits in Docker's memory |
 | disk_guard | 30 s | Hold new builds while less than 5 GB is free |
 | cleanup_deleted / _stale / _builds | hourly / daily | Remove deleted branches after 24 h; stop branches with no commits or visits for 30 days (starred ones never), delete them after 60; drop failed logs after 14 days |
 | prune_enterprise / prune_images / prune_db_templates | daily / weekly / 6 h | Remove unused Enterprise copies, this system's unused images, old ready-made databases |
 | backup | daily | `pg_dump` of the app database to `DATA_DIR/backups/`, kept 14 days |
 
-- **Webhook:** each project's Settings tab shows the payload URL and secret (events: push, create,
-  delete). GitHub cannot reach `*.localhost`, so locally the poll does the work.
+- **Webhook:** each project's Settings tab shows its own payload URL (`/api/webhooks/github/<id>`)
+  and secret (events: push, create, delete). The signature is checked before anything else; the
+  older shared URL `/api/webhooks/github` still works. GitHub cannot reach `*.localhost`, so
+  locally the poll does the work.
+- **Isolation:** previews and build containers run on their own Docker network
+  (`previewer_previews`) with Traefik, Postgres and the worker, never next to the Docker socket
+  proxy or the app. Each build connects to Postgres as its own role (`pv_b<build id>`), which owns
+  only that build's database and cannot create databases or open any other one. On start the
+  worker moves previews made by older versions to this setup (and locks the old shared role).
+- **Memory:** the running limit is capped to what fits in Docker's memory: previews x memory per
+  preview + builds x memory per build + `RESERVED_MEMORY` (2 GB). **Memory overcommit** on System
+  allows more, betting previews stay below their limits.
 - **Login on previews:** previews ask the dashboard first (Traefik forward-auth). A logged-in
   user gets a separate *preview pass* cookie; the dashboard session itself never reaches a
   preview. Turn **Previews require a dashboard login** off per project for client demos.

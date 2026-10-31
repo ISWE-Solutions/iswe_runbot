@@ -29,6 +29,7 @@ KIND_STYLE = {
     "timeout": ("bi-hourglass-split", "Timeout"),
     "health": ("bi-heart-pulse", "Start-up"),
     "setup": ("bi-gear", "Setup"),
+    "tests": ("bi-clipboard2-x", "Tests"),
     "other": ("bi-exclamation-octagon", "Error"),
 }
 

@@ -5,7 +5,7 @@ from ..models import Build, OdooVersion, utcnow
 from ..naming import container_name
 from . import docker_ops
 from .logs import BuildLog
-from .pipeline import Followers, teardown
+from .pipeline import Followers, teardown, wait_until_healthy
 
 
 class JobError(Exception):
@@ -36,18 +36,24 @@ def sleep(build_id: int, reason: str) -> None:
 
 
 def start(build_id: int, followers: Followers) -> None:
-    """Start (or wake) a stopped/sleeping preview and wait until it is healthy."""
+    """Start (or wake) a stopped/sleeping preview and wait until it is healthy. A preview that
+    does not come up is stopped again, so it never runs uncounted (status still sleeping)."""
     name = container_name(build_id)
     ctr = docker_ops.get_container(name)
     if ctr is None:
         raise JobError(f"Container {name} no longer exists; rebuild the branch")
     with session_scope() as s:
         timeout = appsettings.get_int(s, "health_timeout_seconds")
+    from .automation import enforce_running_limit, make_room
     if ctr.status != "running":
+        make_room(starting=build_id)
         ctr.start()
     followers.start(build_id)
-    problem = docker_ops.wait_healthy(name, timeout)
+    blog = BuildLog(build_id)
+    problem = wait_until_healthy(name, timeout, blog)
     if problem:
+        docker_ops.stop_container(name)
+        blog.step(f"Preview did not start, stopped again: {problem}")
         raise JobError(f"Preview did not become healthy: {problem}")
     with session_scope() as s:
         b = s.get(Build, build_id)
@@ -55,8 +61,7 @@ def start(build_id: int, followers: Followers) -> None:
             woke = b.status == "sleeping"
             b.status = "running"
             b.last_accessed_at = utcnow()  # or the idle check would put it straight back to sleep
-    BuildLog(build_id).step("Preview woke up" if b and woke else "Preview started")
-    from .automation import enforce_running_limit
+    blog.step("Preview woke up" if b and woke else "Preview started")
     enforce_running_limit(exclude=build_id)
 
 

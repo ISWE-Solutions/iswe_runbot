@@ -62,7 +62,11 @@ test("a build page's tabs (client-side)", async ({ page }) => {
   test.skip(!b, "no build");
   await page.goto(b);
   const keys = await page.$$eval('[data-tabs-group="build"] [role=tab]', (ts) => ts.map((t) => t.dataset.tab));
-  expect(keys).toEqual(expect.arrayContaining(["log", "details"]));
+  expect(keys).toEqual(expect.arrayContaining(["tests", "log", "details"]));
+  await page.click('[data-tabs-group="build"] [role=tab][data-tab="tests"]');
+  // a result summary, or a plain-words reason why there is none
+  await expect(page.locator('[data-tab-panel="build:tests"]')).toContainText(
+    /passed|failed|no tests|Tests were off|did not run|appear when the build finishes|No test results/);
   for (const key of keys) {
     await page.click(`[data-tabs-group="build"] [role=tab][data-tab="${key}"]`);
     await expect(page.locator(`[data-tab-panel="build:${key}"]`)).toBeVisible();
