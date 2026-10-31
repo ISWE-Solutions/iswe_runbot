@@ -3,7 +3,7 @@ import pytest
 from previewer import deps
 from previewer.models import Branch, Build, ModuleSet, Project
 from previewer.web.views import error_headline
-from test_web_app import as_role, make_branch, make_project  # noqa: F401  (fixture)
+from test_web_app import make_branch, make_project, user_client  # noqa: F401  (fixture)
 from test_web_combos import checks_ok, combo_form, make_combo  # noqa: F401  (fixture)
 
 REPO = {
@@ -34,30 +34,28 @@ def _setup(s):
     return p, b
 
 
-def test_modules_tab_lists_available_and_top_level(s, as_role, github_modules):
+def test_modules_tab_lists_available_and_top_level(s, user_client, github_modules):
     p, b = _setup(s)
-    c = as_role("tester")
+    c = user_client
     assert c.get(f"/projects/{p.id}?tab=modules").status_code == 200
     r = c.get(f"/projects/{p.id}/modules/available?branch_id={b.id}")
     assert r.status_code == 200
     assert "Install these <strong>3</strong>" in r.text and "all <strong>5</strong>" in r.text
     assert "top-level" in r.text and "ghost_module" in r.text
-    assert "Create set from top-level modules" not in r.text  # testers cannot create sets
-    assert "Create set from top-level modules" in as_role("developer").get(
-        f"/projects/{p.id}/modules/available?branch_id={b.id}").text
+    assert "Create set from top-level modules" in r.text
 
 
-def test_create_set_from_top_level(s, as_role, github_modules):
+def test_create_set_from_top_level(s, user_client, github_modules):
     p, b = _setup(s)
-    r = as_role("developer").post(f"/projects/{p.id}/module-sets/top-level", data={"branch_id": b.id})
+    r = user_client.post(f"/projects/{p.id}/module-sets/top-level", data={"branch_id": b.id})
     assert r.status_code == 303
     ms = s.query(ModuleSet).one()
     assert ms.modules == "acme_extra,acme_portal,acme_reports" and "5 modules" in ms.description
 
 
-def test_module_set_crud_default_and_effective_modules(s, as_role, github_modules):
+def test_module_set_crud_default_and_effective_modules(s, user_client, github_modules):
     p, b = _setup(s)
-    c = as_role("developer")
+    c = user_client
     assert c.get(f"/projects/{p.id}/module-sets/new").status_code == 200
     r = c.post(f"/projects/{p.id}/module-sets/new", data={
         "name": "Reports", "modules": ["acme_reports"], "modules_text": "acme_portal, acme_reports",
@@ -87,9 +85,9 @@ def test_module_set_crud_default_and_effective_modules(s, as_role, github_module
     assert s.get(Branch, b.id).effective_modules == ""
 
 
-def test_plan_preview_explains_missing_dependency(s, as_role, github_modules):
+def test_plan_preview_explains_missing_dependency(s, user_client, github_modules):
     p, b = _setup(s)
-    c = as_role("tester")
+    c = user_client
     r = c.post(f"/projects/{p.id}/modules/plan", data={"branch_id": b.id, "modules_text": "acme_extra, acme_reports"})
     assert r.status_code == 200
     assert "acme_extra cannot install: it depends on ghost_module" in r.text
@@ -98,12 +96,12 @@ def test_plan_preview_explains_missing_dependency(s, as_role, github_modules):
     assert "cannot install" not in ok.text and "3 modules (1 asked for, 2 pulled in" in " ".join(ok.text.split())
 
 
-def test_branch_settings_module_choice(s, as_role, github_modules, checks_ok):
+def test_branch_settings_module_choice(s, user_client, github_modules, checks_ok):
     p, b = _setup(s)
     ms = ModuleSet(project_id=p.id, name="Top", modules="acme_reports,acme_portal")
     s.add(ms)
     s.commit()
-    c = as_role("developer")
+    c = user_client
     base = {"odoo_version_override": "", "demo_data_override": "default", "enabled": "on", "auto_rebuild": "on"}
     r = c.post(f"/branches/{b.id}/settings", data={**base, "modules_mode": "set", "module_set_id": ms.id})
     assert r.status_code == 303
@@ -127,15 +125,15 @@ def test_branch_settings_module_choice(s, as_role, github_modules, checks_ok):
     assert empty.status_code == 400
 
 
-def test_branch_plan_and_page(s, as_role, github_modules):
+def test_branch_plan_and_page(s, user_client, github_modules):
     p, b = _setup(s)
-    c = as_role("tester")
+    c = user_client
     assert "Install plan" in c.get(f"/branches/{b.id}").text
     r = c.post(f"/branches/{b.id}/plan")
     assert r.status_code == 200 and "acme_extra cannot install" in r.text  # auto = every module
 
 
-def test_build_page_shows_install_plan(s, as_role):
+def test_build_page_shows_install_plan(s, user_client):
     p, b = _setup(s)
     plan = {"requested": ["acme_reports", "acme_extra"], "install": ["acme_reports", "acme_payroll", "acme_base"],
             "core": ["base", "hr"], "missing": {"acme_extra": ["ghost_module"]},
@@ -145,7 +143,7 @@ def test_build_page_shows_install_plan(s, as_role):
                                 "2026 ERROR odoo: something else")
     s.add(build)
     s.commit()
-    r = as_role("tester").get(f"/builds/{build.id}")
+    r = user_client.get(f"/builds/{build.id}")
     assert r.status_code == 200
     assert "Modules could not install" in r.text and "Install plan" in r.text
     assert "ghost_module" in r.text and "acme_payroll" in r.text
@@ -158,18 +156,9 @@ def test_error_headline_keeps_dependency_lines():
     assert error_headline("Odoo crashed\nmore") == "Odoo crashed"
 
 
-def test_module_sets_permissions(s, as_role, github_modules):
-    p, b = _setup(s)
-    c = as_role("tester")
-    assert c.get(f"/projects/{p.id}/module-sets/new").status_code == 403
-    assert c.post(f"/projects/{p.id}/module-sets/new", data={"name": "X", "modules_text": "acme_base"}).status_code == 403
-    assert c.post(f"/projects/{p.id}/module-sets/default", data={"module_set_id": ""}).status_code == 403
-    assert s.query(ModuleSet).count() == 0
-
-
-def test_combo_modules_tab_and_settings_set(s, as_role, github_modules, checks_ok):
+def test_combo_modules_tab_and_settings_set(s, user_client, github_modules, checks_ok):
     make_project(s)
-    c = as_role("developer")
+    c = user_client
     combo = make_combo(s, c)
     assert c.get(f"/combos/{combo.id}?tab=modules").status_code == 200
     r = c.get(f"/projects/{combo.id}/modules/available")

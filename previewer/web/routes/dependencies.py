@@ -13,7 +13,7 @@ from ... import github
 from ...db import get_db
 from ...models import Branch, Project, ProjectDependency, User
 from .. import accounts
-from ..deps import admin, developer, flash, render
+from ..deps import current_user, flash, render
 from ..views import version_choices
 
 router = APIRouter()
@@ -104,14 +104,14 @@ def _validate(s: Session, p: Project, dep: ProjectDependency | None, form) -> tu
 
 
 @router.get("/projects/{pid}/deps/new")
-def new_dep(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+def new_dep(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = get_project(s, pid)
     return render(request, "dependency_form.html", _form_ctx(s, p, None, _values(None), {}))
 
 
 @router.get("/projects/{pid}/deps/{did}/edit")
 def edit_dep(pid: int, did: int, request: Request, s: Session = Depends(get_db),
-             user: User = Depends(admin)):
+             user: User = Depends(current_user)):
     p = get_project(s, pid)
     d = get_dep(s, p, did)
     return render(request, "dependency_form.html", _form_ctx(s, p, d, _values(d), {}))
@@ -136,19 +136,19 @@ async def _save(pid: int, did: int | None, request: Request, s: Session):
 
 
 @router.post("/projects/{pid}/deps/new")
-async def create_dep(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+async def create_dep(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     return await _save(pid, None, request, s)
 
 
 @router.post("/projects/{pid}/deps/{did}/edit")
 async def update_dep(pid: int, did: int, request: Request, s: Session = Depends(get_db),
-                     user: User = Depends(admin)):
+                     user: User = Depends(current_user)):
     return await _save(pid, did, request, s)
 
 
 @router.post("/projects/{pid}/deps/{did}/delete")
 def delete_dep(pid: int, did: int, request: Request, s: Session = Depends(get_db),
-               user: User = Depends(admin)):
+               user: User = Depends(current_user)):
     p = get_project(s, pid)
     d = get_dep(s, p, did)
     for b in p.branches:
@@ -163,7 +163,7 @@ def delete_dep(pid: int, did: int, request: Request, s: Session = Depends(get_db
 
 @router.post("/projects/{pid}/deps/{did}/move")
 async def move_dep(pid: int, did: int, request: Request, s: Session = Depends(get_db),
-                   user: User = Depends(admin)):
+                   user: User = Depends(current_user)):
     p = get_project(s, pid)
     d = get_dep(s, p, did)
     direction = (await request.form()).get("dir")
@@ -180,7 +180,7 @@ async def move_dep(pid: int, did: int, request: Request, s: Session = Depends(ge
 
 @router.post("/projects/{pid}/deps/branches")
 async def load_dep_branches(pid: int, request: Request, s: Session = Depends(get_db),
-                            user: User = Depends(admin)):
+                            user: User = Depends(current_user)):
     """HTMX: the per-version branch dropdowns, filled from GitHub."""
     p = get_project(s, pid)
     form = await request.form()
@@ -201,7 +201,7 @@ async def load_dep_branches(pid: int, request: Request, s: Session = Depends(get
 
 
 @router.post("/projects/{pid}/deps/test")
-async def test_dep(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+async def test_dep(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = get_project(s, pid)
     form = await request.form()
     did = form.get("dep_id")
@@ -218,7 +218,7 @@ async def test_dep(pid: int, request: Request, s: Session = Depends(get_db), use
 
 @router.post("/branches/{bid}/dep-branches/{did}")
 def load_branch_override_options(bid: int, did: int, request: Request, s: Session = Depends(get_db),
-                                 user: User = Depends(developer)):
+                                 user: User = Depends(current_user)):
     """HTMX: dropdown of one dependency repo's branches for the branch settings page."""
     b = s.get(Branch, bid)
     if not b:

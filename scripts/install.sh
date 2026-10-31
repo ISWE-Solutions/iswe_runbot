@@ -26,6 +26,6 @@ for _ in $(seq 60); do
 done
 
 echo "Create the first admin ($ADMIN_EMAIL):"
-"${COMPOSE[@]}" exec app python -m previewer.cli create-user --email "$ADMIN_EMAIL" --name Admin --role admin
+"${COMPOSE[@]}" exec app python -m previewer.cli create-user --email "$ADMIN_EMAIL" --name Admin
 SCHEME=http; [ "${TLS_ENABLED:-false}" = "true" ] && SCHEME=https
 echo "Done. Open $SCHEME://${DOMAIN}"

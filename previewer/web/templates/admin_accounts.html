@@ -9,7 +9,7 @@
     <input type="search" name="q" value="{{ q }}" placeholder="Search name or username" aria-label="Search accounts" class="w-52 rounded-md border border-gray-300 px-3 py-1.5 text-sm">
     <button class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Search</button>
   </form>
-  {% if can(user, 'admin') %}<a href="/admin/github-accounts/new" class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add credential</a>{% endif %}
+  <a href="/admin/github-accounts/new" class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add credential</a>
 </div>
 <p class="mb-6 max-w-3xl text-sm text-gray-600">
   The accounts the system pulls code with. Projects and Odoo Enterprise sources use the <strong>default</strong> account unless they name another;
@@ -49,7 +49,6 @@
           {{ parts|join(' · ') if parts else 'not used' }}
         </td>
         <td class="px-4 py-3">
-          {% if can(user, 'admin') %}
           <form class="flex flex-wrap justify-end gap-1" hx-post="/admin/github-accounts/{{ c.id }}/test" hx-target="#test-{{ c.id }}" hx-indicator="#spin-{{ c.id }}">
             <input name="repo_url" placeholder="optional: repo to check, e.g. odoo/enterprise" aria-label="Repository to check with {{ c.name }}"
                    class="w-64 rounded border border-gray-300 px-2 py-1 text-xs">
@@ -63,7 +62,6 @@
             <form method="post" action="/admin/github-accounts/{{ c.id }}/delete" onsubmit="return confirm('Delete this Git credential?')">{{ csrf() }}<button class="{{ btn }} text-red-700">Delete</button></form>
             {% endif %}
           </div>
-          {% endif %}
         </td>
       </tr>
     {% else %}

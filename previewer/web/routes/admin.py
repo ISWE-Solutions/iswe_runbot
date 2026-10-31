@@ -11,10 +11,10 @@ from sqlalchemy.orm import Session
 from ... import appsettings, github, jobs
 from ...config import get_settings
 from ...db import get_db
-from ...models import JOB_STATUSES, JOB_TYPES, ROLES, Branch, Build, DbTemplate, Job, OdooVersion, Project, SchedulerState, User
+from ...models import JOB_STATUSES, JOB_TYPES, Branch, Build, DbTemplate, Job, OdooVersion, Project, SchedulerState, User
 from ...security import decrypt, encrypt, hash_password
 from .. import accounts, system_view
-from ..deps import admin, developer, flash, paginate, paginate_list, render
+from ..deps import current_user, flash, paginate, paginate_list, render
 
 router = APIRouter(prefix="/admin")
 
@@ -25,7 +25,7 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+$")
 # ---------- Odoo versions ----------
 
 @router.get("/versions")
-def versions(request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+def versions(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     rows = s.scalars(select(OdooVersion)).all()
     rows = sorted(rows, key=lambda v: [int(x) for x in v.version.split(".")])
     status = {v.version: accounts.enterprise_status(s, v.version) for v in rows if v.enabled}
@@ -39,7 +39,7 @@ def versions(request: Request, s: Session = Depends(get_db), user: User = Depend
 @router.post("/versions")
 def add_version(request: Request, version: str = Form(...), docker_image: str = Form(...),
                 demo_flag_on: str = Form(""), demo_flag_off: str = Form(""),
-                s: Session = Depends(get_db), user: User = Depends(admin)):
+                s: Session = Depends(get_db), user: User = Depends(current_user)):
     version, docker_image = version.strip(), docker_image.strip()
     if not VERSION_RE.match(version) or not docker_image:
         flash(request, "Version must look like 18.0 and needs a Docker image.", "error")
@@ -77,7 +77,7 @@ def demo_flags_error(version: str, on: str, off: str) -> str | None:
 @router.post("/versions/{version}")
 def edit_version(version: str, request: Request, docker_image: str = Form(...),
                  demo_flag_on: str = Form(""), demo_flag_off: str = Form(""), enabled: str = Form(""),
-                 s: Session = Depends(get_db), user: User = Depends(admin)):
+                 s: Session = Depends(get_db), user: User = Depends(current_user)):
     v = s.get(OdooVersion, version)
     if not v:
         raise HTTPException(404)
@@ -112,7 +112,7 @@ def _enterprise_form(s: Session, v: OdooVersion, form) -> str | None:
 
 @router.post("/versions/{version}/enterprise")
 async def save_enterprise_source(version: str, request: Request, s: Session = Depends(get_db),
-                                 user: User = Depends(admin)):
+                                 user: User = Depends(current_user)):
     v = s.get(OdooVersion, version)
     if not v:
         raise HTTPException(404)
@@ -134,7 +134,7 @@ async def save_enterprise_source(version: str, request: Request, s: Session = De
 
 @router.post("/versions/{version}/enterprise/check")
 async def check_enterprise_source(version: str, request: Request, s: Session = Depends(get_db),
-                                  user: User = Depends(admin)):
+                                  user: User = Depends(current_user)):
     """HTMX: check the form's (unsaved) Enterprise source for this version on GitHub."""
     v = s.get(OdooVersion, version)
     if not v:
@@ -155,7 +155,7 @@ async def check_enterprise_source(version: str, request: Request, s: Session = D
 
 
 @router.post("/versions/{version}/pull")
-def pull_version(version: str, request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+def pull_version(version: str, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     v = s.get(OdooVersion, version)
     if not v:
         raise HTTPException(404)
@@ -167,7 +167,7 @@ def pull_version(version: str, request: Request, s: Session = Depends(get_db), u
 
 @router.post("/versions/{version}/delete")
 def delete_version(version: str, request: Request, s: Session = Depends(get_db),
-                   user: User = Depends(admin)):
+                   user: User = Depends(current_user)):
     v = s.get(OdooVersion, version)
     if not v:
         raise HTTPException(404)
@@ -186,44 +186,39 @@ def delete_version(version: str, request: Request, s: Session = Depends(get_db),
 # ---------- users ----------
 
 @router.get("/users")
-def users(request: Request, q: str = "", role: str = "", page: int = 1,
-          s: Session = Depends(get_db), user: User = Depends(admin)):
+def users(request: Request, q: str = "", page: int = 1,
+          s: Session = Depends(get_db), user: User = Depends(current_user)):
     stmt = select(User).order_by(User.email)
     if q:
         stmt = stmt.where(or_(User.email.ilike(f"%{q}%"), User.name.ilike(f"%{q}%")))
-    if role in ROLES:
-        stmt = stmt.where(User.role == role)
-    return render(request, "admin_users.html", {"page": paginate(s, stmt, page), "q": q,
-                                                "role": role, "roles": ROLES})
+    return render(request, "admin_users.html", {"page": paginate(s, stmt, page), "q": q})
 
 
 @router.post("/users")
-def invite(request: Request, email: str = Form(...), name: str = Form(""), role: str = Form("tester"),
-           password: str = Form(...), s: Session = Depends(get_db), user: User = Depends(admin)):
+def invite(request: Request, email: str = Form(...), name: str = Form(""),
+           password: str = Form(...), s: Session = Depends(get_db), user: User = Depends(current_user)):
     email = email.strip().lower()
-    if not EMAIL_RE.match(email) or role not in ROLES or len(password) < 8:
-        flash(request, "Need a valid email, a role and a password of at least 8 characters.", "error")
+    if not EMAIL_RE.match(email) or len(password) < 8:
+        flash(request, "Need a valid email and a password of at least 8 characters.", "error")
     elif s.scalars(select(User).where(User.email == email)).first():
         flash(request, f"{email} already has an account.", "error")
     else:
-        s.add(User(email=email, name=name.strip(), role=role, password_hash=hash_password(password)))
+        s.add(User(email=email, name=name.strip(), password_hash=hash_password(password)))
         s.commit()
-        flash(request, f"{email} added as {role}. Share the password with them securely.", "success")
+        flash(request, f"{email} added. Share the password with them securely.", "success")
     return RedirectResponse("/admin/users", status_code=303)
 
 
 @router.post("/users/{uid}")
-def update_user(uid: int, request: Request, role: str = Form(...), active: str = Form(""),
-                password: str = Form(""), s: Session = Depends(get_db), user: User = Depends(admin)):
+def update_user(uid: int, request: Request, active: str = Form(""),
+                password: str = Form(""), s: Session = Depends(get_db), user: User = Depends(current_user)):
     u = s.get(User, uid)
     if not u:
         raise HTTPException(404)
     is_active = active in ("on", "true", "1")
-    if u.id == user.id and (role != "admin" or not is_active):
-        flash(request, "You cannot demote or deactivate yourself.", "error")
+    if u.id == user.id and not is_active:
+        flash(request, "You cannot deactivate yourself.", "error")
         return RedirectResponse("/admin/users", status_code=303)
-    if role in ROLES:
-        u.role = role
     u.active = is_active
     if password:
         if len(password) < 8:
@@ -290,13 +285,13 @@ def _system_ctx(s: Session, errors: dict | None = None, form_values: dict | None
 
 @router.get("/system")
 def system(request: Request, tab: str = "previews", page: int = 1, jtype: str = "", jstatus: str = "",
-           s: Session = Depends(get_db), user: User = Depends(developer)):
+           s: Session = Depends(get_db), user: User = Depends(current_user)):
     return render(request, "admin_system.html",
                   _system_ctx(s, tab=tab, page=page, jtype=jtype, jstatus=jstatus))
 
 
 @router.post("/system/settings")
-async def save_system_settings(request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+async def save_system_settings(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     form = await request.form()
     current = {k: appsettings.get(s, k) for k in appsettings.defaults()}
     values, errors = system_view.validate(form, current)
@@ -319,12 +314,12 @@ async def save_system_settings(request: Request, s: Session = Depends(get_db), u
 
 
 @router.post("/system/slack-test", response_class=HTMLResponse)
-def slack_test(request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+def slack_test(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     enc = appsettings.get(s, "slack_webhook_url_enc")
     if not enc:
         return '<p class="text-sm text-amber-700">No Slack webhook URL is saved yet.</p>'
     try:
-        r = httpx.post(decrypt(enc), json={"text": f"Test message from the Preview Portal at "
+        r = httpx.post(decrypt(enc), json={"text": f"Test message from the Previewer at "
                                                    f"{get_settings().dashboard_url} (sent by {user.email})"},
                        timeout=10)
     except httpx.HTTPError as e:

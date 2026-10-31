@@ -116,5 +116,5 @@ def preview_pass(request: Request, next: str = "") -> Response:
     response = RedirectResponse(next, status_code=303)
     response.set_cookie(PASS_COOKIE, _signer().dumps({"u": request.session["user_id"]}),
                         max_age=PASS_SECONDS, domain=c.domain, httponly=True, samesite="lax",
-                        secure=c.tls_enabled)
+                        secure=c.https)
     return response

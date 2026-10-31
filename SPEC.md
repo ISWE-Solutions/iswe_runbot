@@ -19,11 +19,11 @@ Instructions for Claude Code:
 
 Build a self-hosted web app that turns every branch of a registered GitHub repo into a running Odoo instance with its own web address, like Odoo's Runbot but for our custom modules.
 
-Expected load: 5 developers, 3 testers, about 5 projects with about 6 branches each, so roughly 30 branch previews.
+Expected load: about 8 users, about 5 projects with about 6 branches each, so roughly 30 branch previews.
 
 Core flow:
 
-1. An admin adds a project in the dashboard: the GitHub repo URL (for example `github.com/acme/custom-payroll`), an access token, and a default Odoo version.
+1. A user adds a project in the dashboard: the GitHub repo URL (for example `github.com/acme/custom-payroll`), an access token, and a default Odoo version.
 2. The system discovers the repo's branches.
 3. Each branch uses the project's default Odoo version unless someone sets a different version for that branch in the dashboard.
 4. For each branch, the system starts a Docker container running the chosen Odoo version with that branch's code, on a fresh database with the custom modules installed.
@@ -39,7 +39,7 @@ Each preview runs on its own subdomain. The path style `base_url/<version>/<proj
 Why Odoo is not served directly under a path:
 
 - Odoo assumes it sits at the root of a domain. Its login, assets (`/web/assets/...`) and live updates (`/websocket`) use absolute paths, so `/18.0/payroll/...` breaks pages.
-- Previews sharing one domain would share the `session_id` cookie, so testers would be logged out each time they switch previews.
+- Previews sharing one domain would share the `session_id` cookie, so people would be logged out each time they switch previews.
 - A project has several branches, so the address must include the branch.
 
 | Address | Example | Purpose |
@@ -87,8 +87,8 @@ A project has many branches, a branch has many builds, and at most one build per
 | `projects` | name, slug, repo\_url, access\_token (encrypted), default\_odoo\_version, edition (community / enterprise), modules\_to\_install (blank = auto-detect), install\_demo\_data, branch\_include\_regex, branch\_exclude\_regex, extra\_addons\_repos (JSON list of url + branch) | Slug is unique and editable |
 | `branches` | project\_id, name, slug, odoo\_version\_override (nullable), enabled, last\_commit\_sha, last\_commit\_message, last\_commit\_author, last\_commit\_at, deleted\_at | Effective version = override, else project default |
 | `builds` | branch\_id, commit\_sha, odoo\_version, status, container\_id, db\_name, host, started\_at, finished\_at, last\_accessed\_at, log\_path, error\_summary | Keep the latest successful build plus recent failed ones |
-| `odoo_versions` | version (`16.0`...`19.0`), docker\_image, demo\_flag\_on, demo\_flag\_off, enabled | Admin-managed. Demo flags differ by version, so store them here and verify each against `odoo --help` |
-| `users` | email, name, password\_hash, role (admin / developer / tester), active |  |
+| `odoo_versions` | version (`16.0`...`19.0`), docker\_image, demo\_flag\_on, demo\_flag\_off, enabled | Managed on the Odoo versions page. Demo flags differ by version, so store them here and verify each against `odoo --help` |
+| `users` | email, name, password\_hash, active |  |
 | `jobs` | type (build / start / stop / wake / delete / sync), payload JSON, status, attempts, run\_after, error | Worker picks jobs in order |
 | `settings` | key, value | Idle hours, limits, retention days |
 
@@ -129,17 +129,13 @@ The main screen is the project page: one row per branch with its Odoo version as
 | Project detail | Table of branches: name, Odoo version (dropdown), status badge, last commit (short sha, message, author, time), preview link, friendly link, last visited | Open, Rebuild, Stop, Wake, View logs, Branch settings, Enable/disable, Sync branches now |
 | Branch settings | Version override, modules override, demo data, enabled | Save (triggers rebuild if needed) |
 | Build logs | Live log stream for a build, plus past builds of the branch | Download log |
-| Odoo versions (admin) | Versions, images, demo flags, enabled | Add, edit, disable, pull image |
-| Users (admin) | Users and roles | Invite, change role, deactivate |
-| System (admin) | CPU, RAM, disk use, running previews, build queue, settings | Change limits and idle/cleanup times |
+| Odoo versions | Versions, images, demo flags, enabled | Add, edit, disable, pull image |
+| Users | Users, active or not | Invite, reset password, deactivate |
+| System | CPU, RAM, disk use, running previews, build queue, settings | Change limits and idle/cleanup times |
 
 Status colors: queued grey, building blue, running green, sleeping purple, failed red, stopped dark grey.
 
-Permissions:
-
-- **Tester:** view projects, open previews, wake, view logs.
-- **Developer:** tester rights plus rebuild, stop, change branch version and settings.
-- **Admin:** everything, including projects, versions, users and system settings.
+Permissions: there are no roles. Every signed-in, active user can do everything.
 
 Each preview row also shows the Odoo login to use (default `admin` / `admin` on a fresh database).
 
@@ -191,7 +187,7 @@ The whole system installs on one Ubuntu 24.04 server with 8 CPU cores, 32 GB RAM
 - **Services in Compose:** `traefik`, `socket-proxy`, `postgres`, `app` (backend API), `worker` (build worker). Preview containers are created by the worker on a separate `previews` network (shared only with Traefik, Postgres and the worker), not listed in Compose.
 - **DNS:** A records for `preview.<domain>` and `*.preview.<domain>` pointing to the server.
 - **`.env` keys (at least):** `DOMAIN`, `ACME_EMAIL`, `DNS_PROVIDER`, `DNS_API_TOKEN`, `SECRET_KEY`, `ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, `MAX_CONCURRENT_BUILDS`, `MAX_RUNNING_PREVIEWS`, `IDLE_SLEEP_HOURS`, `PREVIEW_MEMORY_LIMIT`, `ADMIN_EMAIL`.
-- **Install:** a `scripts/install.sh` that checks Docker is installed, creates `/srv/previewer/` folders, runs database migrations, and creates the first admin user. The README walks through it step by step.
+- **Install:** a `scripts/install.sh` that checks Docker is installed, creates `/srv/previewer/` folders, runs database migrations, and creates the first user. The README walks through it step by step.
 - **Backups:** nightly dump of the app's own database only. Preview databases are disposable and not backed up.
 - **Health:** `/health` endpoint reporting database, Docker and queue status.
 
@@ -202,7 +198,7 @@ Build in three phases. Phase 1 alone gives a working Runbot-style preview for ea
 | Phase | Scope | Done when |
 | --- | --- | --- |
 | 1. Core previews | Login, add project, manual branch sync, per-branch Odoo version, build and run pipeline, subdomain routing, friendly-link redirect, build logs | The `custom-payroll` repo is added; two branches run at the same time on different versions (e.g. 17.0 and 18.0); each opens through its friendly link and the `admin` login works; a broken branch shows `failed` with an error summary while its previous build stays up |
-| 2. Automation | Webhooks and polling, auto rebuild on push, sleep and wake-on-visit, cleanup rules, roles and permissions, resource limits, System page, forward-auth on previews | A push starts a build within 1 minute of the webhook; an idle preview sleeps after the set time and wakes on visit in under 60 seconds; a deleted branch is fully removed after the grace period; a tester cannot rebuild |
+| 2. Automation | Webhooks and polling, auto rebuild on push, sleep and wake-on-visit, cleanup rules, resource limits, System page, forward-auth on previews | A push starts a build within 1 minute of the webhook; an idle preview sleeps after the set time and wakes on visit in under 60 seconds; a deleted branch is fully removed after the grace period |
 | 3. Extras (optional) | Enterprise addons, extra addon repos (e.g. OCA), preview link posted as a GitHub commit status on pull requests, anonymised client database templates, Slack notifications | Agreed per feature before starting |
 
 ## Open decisions

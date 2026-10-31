@@ -28,10 +28,8 @@
     <dt class="text-gray-500">Secret</dt>
     <dd class="flex flex-wrap items-center gap-2">
       <span id="webhook-secret-{{ project.id }}">{% if project.webhook_secret %}<code class="rounded bg-gray-100 px-1">••••••••••••••••</code>{% else %}<span class="text-amber-700">not set</span>{% endif %}</span>
-      {% if can(user, 'admin') %}
       {% if project.webhook_secret %}<button type="button" hx-get="/projects/{{ project.id }}/webhook-secret" hx-target="#webhook-secret-{{ project.id }}" class="rounded border border-gray-300 bg-white px-2 py-0.5 text-xs hover:bg-gray-50">Reveal</button>{% endif %}
       <form method="post" action="/projects/{{ project.id }}/webhook-secret" class="inline" onsubmit="return confirm('Create a new secret? The webhook on GitHub must be updated with it.')">{{ csrf() }}<button class="rounded border border-gray-300 bg-white px-2 py-0.5 text-xs hover:bg-gray-50">Regenerate</button></form>
-      {% endif %}
     </dd>
     <dt class="text-gray-500">Events</dt><dd>push, create, delete <span class="text-xs text-gray-500">("Let me select individual events")</span></dd>
   </dl>

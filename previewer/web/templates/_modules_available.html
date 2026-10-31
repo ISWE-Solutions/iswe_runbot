@@ -10,7 +10,7 @@
     <span>Install these <strong>{{ top|length }}</strong> top-level module{{ 's' if top|length != 1 }} to get all <strong>{{ av.own|length }}</strong>
       {{ 'modules of the parts' if project.is_combo else 'modules of ' ~ project.name }}:
       {% for m in top %}<code class="rounded bg-white px-1.5 py-0.5 text-xs ring-1 ring-indigo-200">{{ m }}</code>{% if not loop.last %} {% endif %}{% endfor %}</span>
-    {% if can(user, 'developer') and top %}
+    {% if top %}
     <form method="post" action="/projects/{{ project.id }}/module-sets/top-level" class="ml-auto">{{ csrf() }}
       <input type="hidden" name="branch_id" value="{{ branch.id }}">
       <button class="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">Create set from top-level modules</button>

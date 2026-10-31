@@ -25,9 +25,8 @@ npx playwright show-report report     # HTML report; failures keep screenshots a
 | Variable | Default | Use |
 |---|---|---|
 | `E2E_BASE_URL` | `http://preview.localhost` | Dashboard URL of the stack under test |
-| `E2E_EMAIL` | `admin@preview.localhost` | Admin login of the stack under test |
+| `E2E_EMAIL` | `admin@preview.localhost` | Dashboard login of the stack under test |
 | `E2E_PASSWORD` | required | Its password (never committed; export it in your shell) |
-| `E2E_TESTER_EMAIL` / `E2E_TESTER_PASSWORD` | unset | Enables the permissions test for a tester account |
 | `E2E_CHROME` | unset | Path to a Chromium binary to use instead of Playwright's own |
 | `E2E_WRITE` | unset | `1` runs tests that create (and delete) their own objects |
 
@@ -43,7 +42,6 @@ npx playwright show-report report     # HTML report; failures keep screenshots a
   line in the log" switches to the Log tab.
 - **friendly links:** redirect to the preview; a wrong version explains which version runs.
 - **System:** the summary cards and all six tabs.
-- **permissions** (with tester credentials): no Rebuild, Delete or settings Save.
 - **write** (`E2E_WRITE=1`): Try Odoo → plain Odoo 18 Community → wait until running → open it
   through the preview pass → Odoo login → delete with the typed confirmation → host returns 404.
 

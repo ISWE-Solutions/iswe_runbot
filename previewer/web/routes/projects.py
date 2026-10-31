@@ -17,7 +17,7 @@ from ...models import Branch, GithubCredential, Job, OdooVersion, Project, User,
 from ...naming import preview_host, slugify
 from ...security import decrypt, random_secret
 from .. import accounts, selection
-from ..deps import admin, can, developer, flash, paginate, paginate_list, render, tester
+from ..deps import current_user, flash, paginate, paginate_list, render
 from ..views import branch_is_active, branch_status, project_counts, version_choices
 
 router = APIRouter()
@@ -43,7 +43,7 @@ LIST_TABS = {"projects": "repo", "combined": "combo", "plain": "plain"}
 
 @router.get("/projects")
 def projects_list(request: Request, q: str = "", page: int = 1, tab: str = "projects",
-                  s: Session = Depends(get_db), user: User = Depends(tester)):
+                  s: Session = Depends(get_db), user: User = Depends(current_user)):
     tab = tab if tab in LIST_TABS else "projects"
 
     def of_kind(kind: str):
@@ -156,14 +156,14 @@ def _values_from(project: Project) -> dict:
 
 
 @router.get("/projects/new")
-def new_project(request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+def new_project(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     versions = version_choices(s)
     values = {"edition": "community", "default_odoo_version": versions[-1] if versions else ""}
     return render(request, "project_form.html", _form_ctx(s, None, values, {}))
 
 
 @router.post("/projects/new")
-async def create_project(request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+async def create_project(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     form = dict(await request.form())
     data, errors = validate(s, form, None)
     if errors:
@@ -180,7 +180,7 @@ async def create_project(request: Request, s: Session = Depends(get_db), user: U
 
 
 @router.get("/projects/{pid}/edit")
-def edit_project(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+def edit_project(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = get_project(s, pid)
     return RedirectResponse(f"/projects/{p.id}?tab=settings", status_code=303)
 
@@ -204,7 +204,7 @@ def rehost_branches(s: Session, project: Project) -> list[Branch]:
 
 @router.post("/projects/{pid}/edit")
 async def update_project(pid: int, request: Request, s: Session = Depends(get_db),
-                         user: User = Depends(admin)):
+                         user: User = Depends(current_user)):
     p = get_project(s, pid)
     form = dict(await request.form())
     data, errors = validate(s, form, p)
@@ -230,7 +230,7 @@ async def update_project(pid: int, request: Request, s: Session = Depends(get_db
 
 
 @router.post("/projects/test-connection")
-async def test_connection(request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+async def test_connection(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     form = await request.form()
     url = (form.get("repo_url") or "").strip()
     cid, _ = accounts.parse_choice(s, form.get("credential_id"))
@@ -253,7 +253,7 @@ async def test_connection(request: Request, s: Session = Depends(get_db), user: 
 
 @router.post("/projects/{pid}/delete")
 async def delete_project(pid: int, request: Request, s: Session = Depends(get_db),
-                         user: User = Depends(admin)):
+                         user: User = Depends(current_user)):
     p = get_project(s, pid)
     form = await request.form()
     back = RedirectResponse(f"/combos/{p.id}?tab=settings" if p.is_combo else
@@ -337,9 +337,6 @@ def detail_ctx(request: Request, s: Session, p: Project, tab: str, *, q: str = "
                page: int = 1, sel: str = "", dq: str = "", mq: str = "",
                form_values: dict | None = None, form_errors: dict | None = None) -> dict:
     tab = tab if tab in TABS else "branches"
-    user = getattr(request.state, "user", None)
-    if tab == "settings" and not can(user, "admin"):
-        tab = "branches"
     ctx = {"project": p, "tab": tab, "n_deps": len(p.dependencies), "n_sets": len(p.module_sets)}
     if tab == "branches":
         ctx.update(branches_ctx(s, p, q, status, page, sel))
@@ -359,7 +356,7 @@ def detail_ctx(request: Request, s: Session, p: Project, tab: str, *, q: str = "
 @router.get("/projects/{pid}")
 def project_detail(pid: int, request: Request, tab: str = "branches", q: str = "", status: str = "",
                    page: int = 1, sel: str = "", dq: str = "", mq: str = "",
-                   s: Session = Depends(get_db), user: User = Depends(tester)):
+                   s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = get_project(s, pid)
     if p.is_combo:
         return RedirectResponse(f"/combos/{p.id}", status_code=303)
@@ -370,14 +367,14 @@ def project_detail(pid: int, request: Request, tab: str = "branches", q: str = "
 
 @router.get("/projects/{pid}/branches")
 def branches_partial(pid: int, request: Request, q: str = "", status: str = "", page: int = 1,
-                     sel: str = "", s: Session = Depends(get_db), user: User = Depends(tester)):
+                     sel: str = "", s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = get_project(s, pid)
     return render(request, "_branches_table.html", branches_ctx(s, p, q, status, page, sel))
 
 
 @router.post("/projects/{pid}/branches/bulk")
 async def bulk_select(pid: int, request: Request, s: Session = Depends(get_db),
-                      user: User = Depends(developer)):
+                      user: User = Depends(current_user)):
     p = get_project(s, pid)
     form = await request.form()
     ids = {int(x) for x in form.getlist("ids") if str(x).isdigit()}
@@ -416,7 +413,7 @@ async def bulk_select(pid: int, request: Request, s: Session = Depends(get_db),
 
 
 @router.post("/projects/{pid}/sync")
-def sync_project(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+def sync_project(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = get_project(s, pid)
     jobs.enqueue(s, "sync", {"project_id": p.id})
     s.commit()

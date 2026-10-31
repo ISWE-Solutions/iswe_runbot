@@ -11,6 +11,9 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, password_hash: str) -> bool:
+    """False for an empty hash: Microsoft/GitHub-only users have no password."""
+    if not password_hash:
+        return False
     try:
         return bcrypt.checkpw(password.encode(), password_hash.encode())
     except ValueError:

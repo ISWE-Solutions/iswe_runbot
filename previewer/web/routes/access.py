@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from ...db import get_db
 from ...models import Project, User
 from ...security import random_secret
-from ..deps import Forbidden, admin, can, developer, flash
+from ..deps import current_user, flash
 from . import forward_auth
 
 router = APIRouter()
@@ -39,7 +39,7 @@ def _get(s: Session, pid: int) -> Project:
 
 
 @router.post("/projects/{pid}/access")
-async def save_access(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+async def save_access(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = _get(s, pid)
     form = await request.form()
     p.preview_auth_required = form.get("preview_auth_required") in ("on", "1", "true")
@@ -53,7 +53,7 @@ async def save_access(pid: int, request: Request, s: Session = Depends(get_db), 
 
 
 @router.get("/projects/{pid}/webhook-secret", response_class=HTMLResponse)
-def reveal_secret(pid: int, s: Session = Depends(get_db), user: User = Depends(admin)):
+def reveal_secret(pid: int, s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = _get(s, pid)
     if not p.webhook_secret:
         return '<span class="text-amber-700">not set: press Regenerate</span>'
@@ -61,7 +61,7 @@ def reveal_secret(pid: int, s: Session = Depends(get_db), user: User = Depends(a
 
 
 @router.post("/projects/{pid}/webhook-secret")
-def regenerate_secret(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+def regenerate_secret(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = _get(s, pid)
     p.webhook_secret = random_secret(32)
     s.commit()
@@ -71,12 +71,10 @@ def regenerate_secret(pid: int, request: Request, s: Session = Depends(get_db), 
 
 
 @router.post("/projects/{pid}/tests")
-async def save_tests(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+async def save_tests(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = _get(s, pid)
     if p.is_plain:
         raise HTTPException(404)
-    if not p.is_combo and not can(user, "admin"):
-        raise Forbidden()
     form = await request.form()
     tags = (form.get("test_tags") or "").strip()
     problem = tags_error(tags) if tags else None

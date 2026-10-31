@@ -330,6 +330,6 @@ def test_system_page_shows_the_enforced_limit(s, monkeypatch):
         appsettings.put(s, "max_concurrent_builds", "2")
     s.commit()
     c = client()
-    login(c, make_user(s, "admin").email)
+    login(c, make_user(s).email)
     page = c.get("/admin/system").text
     assert "running of 1 allowed" in page and "Setting is 25; only 1 fits" in page

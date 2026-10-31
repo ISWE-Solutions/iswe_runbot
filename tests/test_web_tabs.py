@@ -3,7 +3,7 @@ import re
 
 from previewer.models import Branch, Build, Job, Project, ProjectDependency
 
-from test_web_app import as_role, make_branch, make_project  # noqa: F401
+from test_web_app import make_branch, make_project, user_client  # noqa: F401
 
 
 def active_tab(html: str) -> str:
@@ -17,15 +17,15 @@ def client_tab(html: str) -> str:
     return m.group(1) if m else ""
 
 
-def test_tabs_macro_marks_active_and_deep_links(s, as_role):
-    html = as_role("admin").get("/admin/system?tab=tasks").text
+def test_tabs_macro_marks_active_and_deep_links(s, user_client):
+    html = user_client.get("/admin/system?tab=tasks").text
     assert active_tab(html) == "tasks"
     for key in ("previews", "queue", "tasks", "templates", "settings", "jobs"):
         assert f'href="/admin/system?tab={key}"' in html
 
 
-def test_system_tabs_render_only_their_section(s, as_role):
-    c = as_role("admin")
+def test_system_tabs_render_only_their_section(s, user_client):
+    c = user_client
     s.add(Job(type="sync", payload={"project_id": 1}, status="done"))
     s.commit()
     previews = c.get("/admin/system").text
@@ -38,15 +38,15 @@ def test_system_tabs_render_only_their_section(s, as_role):
     assert "Nothing waiting." in c.get("/admin/system?tab=queue").text
 
 
-def test_system_settings_save_returns_to_settings_tab(s, as_role):
+def test_system_settings_save_returns_to_settings_tab(s, user_client):
     from previewer import appsettings
     form = {k: v for k, v in appsettings.defaults().items() if k != "slack_webhook_url_enc"}
     form["max_running_previews"] = "20"
-    r = as_role("admin").post("/admin/system/settings", data=form)
+    r = user_client.post("/admin/system/settings", data=form)
     assert r.status_code == 303 and r.headers["location"] == "/admin/system?tab=settings"
 
 
-def test_build_page_default_tab(s, as_role):
+def test_build_page_default_tab(s, user_client):
     p = make_project(s)
     b = make_branch(s, p)
     failed = Build(branch_id=b.id, commit_sha="a" * 40, odoo_version="18.0", status="failed",
@@ -54,7 +54,7 @@ def test_build_page_default_tab(s, as_role):
     running = Build(branch_id=b.id, commit_sha="b" * 40, odoo_version="18.0", status="running")
     s.add_all([failed, running])
     s.commit()
-    c = as_role("tester")
+    c = user_client
     f = c.get(f"/builds/{failed.id}").text
     assert client_tab(f) == "why" and 'data-tab-panel="build:why"' in f and 'data-tab-panel="build:log"' in f
     r = c.get(f"/builds/{running.id}").text
@@ -62,13 +62,13 @@ def test_build_page_default_tab(s, as_role):
     assert client_tab(c.get(f"/builds/{failed.id}?tab=details").text) == "details"
 
 
-def test_branch_page_tabs(s, as_role):
+def test_branch_page_tabs(s, user_client):
     p = make_project(s)
     b = make_branch(s, p)
     s.add(ProjectDependency(project=p, repo_url="https://github.com/acme/bank_extension", module_name="bank_zm"))
     s.add(Build(branch_id=b.id, commit_sha="a" * 40, odoo_version="18.0", status="failed"))
     s.commit()
-    c = as_role("tester")
+    c = user_client
     overview = c.get(f"/branches/{b.id}").text
     assert active_tab(overview) == "overview" and "Last commit" in overview and "Delete selected" not in overview
     builds = c.get(f"/branches/{b.id}?tab=builds").text
@@ -78,11 +78,11 @@ def test_branch_page_tabs(s, as_role):
     assert 'id="live-plan"' in c.get(f"/branches/{b.id}?tab=plan").text
 
 
-def test_projects_page_tabs_with_counts(s, as_role):
+def test_projects_page_tabs_with_counts(s, user_client):
     make_project(s)
     s.add(Project(kind="combo", name="HR suite", slug="hr-suite", repo_url="", default_odoo_version="18.0"))
     s.commit()
-    c = as_role("tester")
+    c = user_client
     html = c.get("/projects").text
     assert active_tab(html) == "projects" and "Payroll" in html and "HR suite" not in html
     assert re.search(r'Combined previews <span[^>]*>1</span>', html)
@@ -90,10 +90,10 @@ def test_projects_page_tabs_with_counts(s, as_role):
     assert "HR suite" in combined and "/projects/1\"" not in combined
 
 
-def test_branch_settings_single_form_saves_every_tab(s, as_role):
+def test_branch_settings_single_form_saves_every_tab(s, user_client):
     p = make_project(s)
     b = make_branch(s, p)
-    c = as_role("developer")
+    c = user_client
     page = c.get(f"/branches/{b.id}/settings").text
     assert page.count('<form method="post" class=') == 1  # one form (plus the sidebar's sign-out)
     for panel in ("bset:general", "bset:modules"):

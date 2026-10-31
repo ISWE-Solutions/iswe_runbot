@@ -7,17 +7,13 @@
   <h1 class="text-2xl font-semibold">Users</h1>
   <form method="get" class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
     <input name="q" value="{{ q }}" placeholder="Search email or name" class="{{ input }} min-w-0 flex-1 sm:w-52 sm:flex-none">
-    <select name="role" class="{{ input }}" onchange="this.form.submit()">
-      <option value="">All roles</option>
-      {% for r in roles %}<option value="{{ r }}" {% if r == role %}selected{% endif %}>{{ r }}</option>{% endfor %}
-    </select>
-    <button class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm hover:bg-gray-50">Filter</button>
+    <button class="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm hover:bg-gray-50">Search</button>
   </form>
 </div>
 <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
   <table class="min-w-full divide-y divide-gray-200 text-sm">
     <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-      <tr><th class="px-4 py-3">User</th><th class="px-4 py-3">Role · active · new password</th></tr>
+      <tr><th class="px-4 py-3">User</th><th class="px-4 py-3">Active · new password</th></tr>
     </thead>
     <tbody class="divide-y divide-gray-100">
     {% for u in page.items %}
@@ -26,7 +22,6 @@
         <td class="px-4 py-2">
           <form method="post" action="/admin/users/{{ u.id }}" class="flex flex-wrap items-center gap-2">
             {{ csrf() }}
-            <select name="role" class="{{ input }}">{% for r in roles %}<option value="{{ r }}" {% if r == u.role %}selected{% endif %}>{{ r }}</option>{% endfor %}</select>
             <label class="flex items-center gap-1"><input type="checkbox" name="active" {% if u.active %}checked{% endif %}> active</label>
             <input name="password" type="password" autocomplete="new-password" placeholder="new password (optional)" class="{{ input }} w-48">
             <button class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50">Save</button>
@@ -45,7 +40,6 @@
   <h2 class="w-full text-sm font-semibold">Invite a user</h2>
   <label class="text-sm">Email<input name="email" type="email" required class="{{ input }} mt-1 block w-56"></label>
   <label class="text-sm">Name<input name="name" class="{{ input }} mt-1 block w-40"></label>
-  <label class="text-sm">Role<select name="role" class="{{ input }} mt-1 block">{% for r in roles %}<option value="{{ r }}" {% if r == 'tester' %}selected{% endif %}>{{ r }}</option>{% endfor %}</select></label>
   <label class="text-sm">Password<input name="password" type="password" autocomplete="new-password" required minlength="8" class="{{ input }} mt-1 block w-44"></label>
   <button class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add user</button>
 </form>

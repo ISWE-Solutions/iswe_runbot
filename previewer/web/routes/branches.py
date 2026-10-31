@@ -8,7 +8,7 @@ from ... import jobs
 from ...db import get_db
 from ...models import Branch, Build, OdooVersion, User
 from .. import selection
-from ..deps import developer, flash, paginate, render, tester
+from ..deps import current_user, flash, paginate, render
 from .board import board_ctx
 from .projects import _parse_modules, branches_ctx
 
@@ -43,7 +43,7 @@ def _done(request: Request, b: Branch, s: Session):
 
 @router.get("/branches/{bid}")
 def branch_page(bid: int, request: Request, page: int = 1, tab: str = "overview",
-                s: Session = Depends(get_db), user: User = Depends(tester)):
+                s: Session = Depends(get_db), user: User = Depends(current_user)):
     b = get_branch(s, bid)
     if b.project.is_combo:
         return RedirectResponse(f"/combos/{b.project_id}", status_code=303)
@@ -55,7 +55,7 @@ def branch_page(bid: int, request: Request, page: int = 1, tab: str = "overview"
 
 
 @router.post("/branches/{bid}/rebuild")
-def rebuild(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+def rebuild(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     b = get_branch(s, bid)
     if not b.enabled:
         flash(request, f"{b.name} is not selected for building; select it first.", "error")
@@ -67,7 +67,7 @@ def rebuild(bid: int, request: Request, s: Session = Depends(get_db), user: User
 
 @router.post("/branches/{bid}/version")
 def change_version(bid: int, request: Request, odoo_version: str = Form(...),
-                   s: Session = Depends(get_db), user: User = Depends(developer)):
+                   s: Session = Depends(get_db), user: User = Depends(current_user)):
     b = get_branch(s, bid)
     v = s.get(OdooVersion, odoo_version)
     if not v or not v.enabled:
@@ -84,7 +84,7 @@ def change_version(bid: int, request: Request, odoo_version: str = Form(...),
 
 
 @router.post("/branches/{bid}/stop")
-def stop(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+def stop(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     b = get_branch(s, bid)
     live = b.live_build
     if live:
@@ -95,7 +95,7 @@ def stop(bid: int, request: Request, s: Session = Depends(get_db), user: User = 
 
 
 @router.post("/branches/{bid}/wake")
-def wake(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(tester)):
+def wake(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     """Sleeping -> wake job; stopped -> start job (latest build that still has a container)."""
     b = get_branch(s, bid)
     target = next((x for x in b.builds if x.status in ("sleeping", "stopped") and x.container_id), None)
@@ -111,7 +111,7 @@ def wake(bid: int, request: Request, s: Session = Depends(get_db), user: User = 
 
 @router.post("/branches/{bid}/sticky")
 def toggle_sticky(bid: int, request: Request, s: Session = Depends(get_db),
-                  user: User = Depends(developer)):
+                  user: User = Depends(current_user)):
     b = get_branch(s, bid)
     b.sticky = not b.sticky
     s.commit()
@@ -120,7 +120,7 @@ def toggle_sticky(bid: int, request: Request, s: Session = Depends(get_db),
 
 @router.post("/branches/{bid}/auto-rebuild")
 def toggle_auto_rebuild(bid: int, request: Request, s: Session = Depends(get_db),
-                        user: User = Depends(developer)):
+                        user: User = Depends(current_user)):
     b = get_branch(s, bid)
     b.auto_rebuild = not b.auto_rebuild
     flash(request, f"{b.name}: " + ("new commits rebuild it automatically again." if b.auto_rebuild
@@ -131,7 +131,7 @@ def toggle_auto_rebuild(bid: int, request: Request, s: Session = Depends(get_db)
 
 @router.post("/branches/{bid}/builds/delete")
 async def delete_builds(bid: int, request: Request, s: Session = Depends(get_db),
-                        user: User = Depends(developer)):
+                        user: User = Depends(current_user)):
     """Bulk delete from the branch page: ticked ids, or every failed build (all_failed=1)."""
     from .builds import remove_build
     b = get_branch(s, bid)
@@ -160,7 +160,7 @@ async def delete_builds(bid: int, request: Request, s: Session = Depends(get_db)
 
 
 @router.post("/branches/{bid}/select")
-def select_branch(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+def select_branch(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     """Select for building (also "Check again"): dependency check, then queue if it passes."""
     b = get_branch(s, bid)
     if selection.select(request, s, b) == "queued":
@@ -171,7 +171,7 @@ def select_branch(bid: int, request: Request, s: Session = Depends(get_db), user
 
 @router.post("/branches/{bid}/unselect")
 def unselect_branch(bid: int, request: Request, s: Session = Depends(get_db),
-                    user: User = Depends(developer)):
+                    user: User = Depends(current_user)):
     b = get_branch(s, bid)
     selection.unselect(s, b)
     flash(request, f"{b.name} unselected: it will not be built.", "info")
@@ -180,13 +180,13 @@ def unselect_branch(bid: int, request: Request, s: Session = Depends(get_db),
 
 
 @router.post("/branches/{bid}/toggle")
-def toggle(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+def toggle(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     b = get_branch(s, bid)
     return unselect_branch(bid, request, s, user) if b.enabled else select_branch(bid, request, s, user)
 
 
 @router.post("/branches/{bid}/build-anyway")
-def build_anyway(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+def build_anyway(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     b = get_branch(s, bid)
     b.enabled = True
     if selection.queue(request, s, b):
@@ -196,21 +196,21 @@ def build_anyway(bid: int, request: Request, s: Session = Depends(get_db), user:
 
 
 @router.post("/branches/{bid}/check")
-def check_branch(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(tester)):
+def check_branch(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     """HTMX: the dependency check as a small ✓/✗ list (no state change)."""
     b = get_branch(s, bid)
     return render(request, "_check_results.html", {"branch": b, "results": selection.run_check(b)})
 
 
 @router.get("/branches/{bid}/settings")
-def settings_form(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+def settings_form(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     b = get_branch(s, bid)
     return render(request, "branch_settings.html", _settings_ctx(s, b, {}))
 
 
 @router.post("/branches/{bid}/settings")
 async def save_settings(bid: int, request: Request, s: Session = Depends(get_db),
-                        user: User = Depends(developer)):
+                        user: User = Depends(current_user)):
     b = get_branch(s, bid)
     form = await request.form()
     errors: dict = {}

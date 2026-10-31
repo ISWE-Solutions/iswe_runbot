@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ...db import get_db
 from ...models import COMBO_BRANCH, Branch, Project, User
-from ..deps import render, tester
+from ..deps import current_user, render
 from ..views import detail_url, friendly_path, preview_url
 
 router = APIRouter()
@@ -15,7 +15,7 @@ router = APIRouter()
 
 @router.get("/{version:odoover}/{project_slug}")
 def friendly_combo(version: str, project_slug: str, request: Request,
-                   s: Session = Depends(get_db), user: User = Depends(tester)):
+                   s: Session = Depends(get_db), user: User = Depends(current_user)):
     """/<version>/<combo-slug>: a combined preview has no branch segment."""
     project = s.scalars(select(Project).where(Project.slug == project_slug)).first()
     if not project:
@@ -30,7 +30,7 @@ def friendly_combo(version: str, project_slug: str, request: Request,
 
 @router.get("/{version:odoover}/{project_slug}/{branch:path}")
 def friendly(version: str, project_slug: str, branch: str, request: Request,
-             s: Session = Depends(get_db), user: User = Depends(tester)):
+             s: Session = Depends(get_db), user: User = Depends(current_user)):
     project = s.scalars(select(Project).where(Project.slug == project_slug)).first()
     if not project:
         raise HTTPException(404)

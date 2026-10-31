@@ -52,7 +52,7 @@
       <p class="text-xs text-gray-500">{{ branch.last_commit_author or '' }}{% if branch.last_commit_at %} · {{ branch.last_commit_at|ago }}{% endif %}</p>
     {% else %}<p class="mt-2 text-sm text-gray-500">Unknown — sync branches.</p>{% endif %}
     <div class="mt-4 flex flex-wrap gap-2">
-      {% if can(user, 'developer') and not branch.deleted_at %}
+      {% if not branch.deleted_at %}
       {% if branch.enabled %}
       <form method="post" action="/branches/{{ branch.id }}/rebuild">{{ csrf() }}<button class="{{ btn }}">Rebuild</button></form>
       {% else %}

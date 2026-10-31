@@ -14,7 +14,7 @@ from ...models import COMBO_BRANCH, Branch, OdooVersion, Project, User
 from ...naming import preview_host, slugify
 from ...security import random_secret
 from .. import accounts, selection
-from ..deps import developer, flash, render
+from ..deps import current_user, flash, render
 from .projects import _parse_modules
 
 router = APIRouter()
@@ -141,7 +141,7 @@ def form_ctx(s: Session, values: dict, errors: dict) -> dict:
 
 
 @router.get("/try")
-def try_odoo(request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+def try_odoo(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     versions = enabled_versions(s)
     values = {"default_odoo_version": versions[-1] if versions else "", "edition": "community",
               "install_demo_data": False, "modules_to_install": "", "name": "", "slug": ""}
@@ -149,7 +149,7 @@ def try_odoo(request: Request, s: Session = Depends(get_db), user: User = Depend
 
 
 @router.post("/try")
-async def create_plain(request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+async def create_plain(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     form = await request.form()
     data, errors = validate(s, form)
     if errors:

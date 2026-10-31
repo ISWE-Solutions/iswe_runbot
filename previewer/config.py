@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # Dashboard host; previews live at <label>.<domain>
     domain: str = "preview.localhost"
     tls_enabled: bool = False
+    # HTTPS is terminated by a proxy in front of the stack (Traefik itself serves plain HTTP):
+    # dashboard/preview URLs and OAuth redirect URIs use https and cookies are Secure.
+    public_https: bool = False
     acme_email: str = ""
     dns_provider: str = ""
     dns_api_token: str = ""
@@ -53,6 +56,16 @@ class Settings(BaseSettings):
     # Seeds the "Default" Git credential on first start; managed on the Git credentials page after
     github_username: str = Field("", validation_alias=AliasChoices("github_username", "github_user"))
     github_token: str = ""
+
+    # Sign in with Microsoft (Entra ID app registration, single tenant; anyone in the tenant)
+    microsoft_tenant_id: str = ""
+    microsoft_client_id: str = ""
+    microsoft_client_secret: str = ""
+    # Sign in with GitHub (OAuth App; active members of github_signin_org only). Unrelated to
+    # github_token / github_username above, which pull code.
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    github_signin_org: str = "ISWE-Solutions"
 
     # Defaults for the `settings` table (the table wins once seeded)
     max_concurrent_builds: int = 3
@@ -94,8 +107,13 @@ class Settings(BaseSettings):
         )
 
     @property
+    def https(self) -> bool:
+        """Browsers reach the stack over HTTPS (Traefik's own TLS or a proxy in front)."""
+        return self.tls_enabled or self.public_https
+
+    @property
     def scheme(self) -> str:
-        return "https" if self.tls_enabled else "http"
+        return "https" if self.https else "http"
 
     @property
     def dashboard_url(self) -> str:

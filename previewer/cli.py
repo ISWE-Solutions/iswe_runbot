@@ -39,16 +39,16 @@ def seed_default_credential() -> None:
                                    token_enc=encrypt(c.github_token), is_default=True))
 
 
-def create_user(email: str, name: str, password: str, role: str) -> None:
+def create_user(email: str, name: str, password: str) -> None:
     with session_scope() as s:
         user = s.scalars(select(User).where(User.email == email.lower())).first()
         if user:
             user.password_hash = hash_password(password)
-            user.role, user.active = role, True
-            print(f"Updated {email} ({role})")
+            user.active = True
+            print(f"Updated {email}")
         else:
-            s.add(User(email=email.lower(), name=name, password_hash=hash_password(password), role=role))
-            print(f"Created {email} ({role})")
+            s.add(User(email=email.lower(), name=name, password_hash=hash_password(password)))
+            print(f"Created {email}")
 
 
 def main(argv=None) -> int:
@@ -58,7 +58,6 @@ def main(argv=None) -> int:
     u = sub.add_parser("create-user", help="Create or reset a dashboard user")
     u.add_argument("--email", required=True)
     u.add_argument("--name", default="")
-    u.add_argument("--role", default="admin", choices=["admin", "developer", "tester"])
     u.add_argument("--password", help="Prompted when omitted")
     args = p.parse_args(argv)
 
@@ -70,7 +69,7 @@ def main(argv=None) -> int:
         if len(password) < 8:
             print("Password must be at least 8 characters", file=sys.stderr)
             return 1
-        create_user(args.email, args.name, password, args.role)
+        create_user(args.email, args.name, password)
     return 0
 
 

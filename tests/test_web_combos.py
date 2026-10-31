@@ -5,7 +5,7 @@ from previewer import deps as builddeps
 from previewer import github
 from previewer.models import COMBO_BRANCH, Branch, Build, Job, Project, ProjectDependency
 from previewer.web import selection
-from test_web_app import as_role, make_branch, make_project  # noqa: F401  (fixture)
+from test_web_app import make_branch, make_project, user_client  # noqa: F401  (fixture)
 
 
 @pytest.fixture
@@ -36,16 +36,16 @@ def combo_form(**kw):
 
 
 def make_combo(s, c, **kw) -> Project:
-    """c: a logged-in developer/admin client."""
+    """c: a signed-in client."""
     r = c.post("/combos/new", data=combo_form(**kw))
     assert r.status_code == 303, r.text
     s.expire_all()
     return s.query(Project).filter_by(kind="combo").one()
 
 
-def test_create_combo_pins_parts_and_refreshes(s, as_role, checks_ok):
+def test_create_combo_pins_parts_and_refreshes(s, user_client, checks_ok):
     make_project(s)  # default account
-    p = make_combo(s, as_role("developer"))
+    p = make_combo(s, user_client)
     assert p.slug == "hr-suite" and p.repo_url == "" and p.edition == "enterprise"
     b = s.query(Branch).filter_by(project_id=p.id).one()
     assert b.name == COMBO_BRANCH and b.enabled and b.host == "hr-suite.preview.localhost"
@@ -58,9 +58,9 @@ def test_create_combo_pins_parts_and_refreshes(s, as_role, checks_ok):
     assert s.query(Build).count() == 0  # the worker's sync resolves the heads, then builds
 
 
-def test_create_combo_blocked_does_not_refresh(s, as_role, checks_blocked):
+def test_create_combo_blocked_does_not_refresh(s, user_client, checks_blocked):
     make_project(s)
-    c = as_role("developer")
+    c = user_client
     r = c.post("/combos/new", data=combo_form(), follow_redirects=True)
     assert "not built" in r.text and "no branch" in r.text
     assert s.query(Job).filter_by(type="sync").count() == 0
@@ -72,9 +72,9 @@ def test_create_combo_blocked_does_not_refresh(s, as_role, checks_blocked):
     assert s.query(Job).filter_by(type="sync").count() == 1
 
 
-def test_create_combo_validation(s, as_role, checks_ok):
+def test_create_combo_validation(s, user_client, checks_ok):
     make_project(s)
-    c = as_role("developer")
+    c = user_client
     r = c.post("/combos/new", data=combo_form(**{"parts-0-branch": "", "parts-1-repo_url": "nope"}))
     assert r.status_code == 400 and "choose a branch" in r.text and "Not a GitHub repository" in r.text
     r = c.post("/combos/new", data={k: v for k, v in combo_form().items() if not k.startswith("parts-")})
@@ -86,9 +86,9 @@ def test_create_combo_validation(s, as_role, checks_ok):
     assert s.query(Project).filter_by(kind="combo").count() == 1
 
 
-def test_registered_project_part_prefills(s, as_role, checks_ok):
+def test_registered_project_part_prefills(s, user_client, checks_ok):
     reg = make_project(s, module_name="payroll_zm")
-    c = as_role("developer")
+    c = user_client
     r = c.post("/combos/part-row", data={"row": "3", "action": "source", "parts-3-source": f"project:{reg.id}"})
     assert r.status_code == 200
     assert 'value="https://github.com/acme/payroll_extension"' in r.text and 'value="payroll_zm"' in r.text
@@ -100,19 +100,19 @@ def test_registered_project_part_prefills(s, as_role, checks_ok):
     assert {d.repo_url for d in p.dependencies} >= {reg.repo_url}
 
 
-def test_part_row_loads_branches(s, as_role, monkeypatch):
+def test_part_row_loads_branches(s, user_client, monkeypatch):
     make_project(s)
     monkeypatch.setattr(github, "list_branches", lambda url, tok: [github.BranchInfo("main", "1" * 40),
                                                                     github.BranchInfo("v19", "2" * 40)])
-    r = as_role("developer").post("/combos/part-row", data={
+    r = user_client.post("/combos/part-row", data={
         "row": "0", "action": "load", "parts-0-source": "other",
         "parts-0-repo_url": "https://github.com/acme/bank_extension2"})
     assert "2 branches loaded" in r.text and '<option value="v19">' in r.text
 
 
-def test_edit_parts_change_branch_add_remove(s, as_role, checks_ok):
+def test_edit_parts_change_branch_add_remove(s, user_client, checks_ok):
     make_project(s)
-    c = as_role("admin")
+    c = user_client
     p = make_combo(s, c)
     b = p.branches[0]
     pay, bank = sorted(p.dependencies, key=lambda d: d.position)
@@ -135,10 +135,10 @@ def test_edit_parts_change_branch_add_remove(s, as_role, checks_ok):
     assert s.query(Job).filter_by(type="sync").count() == 1
 
 
-def test_combo_preview_tab_and_settings(s, as_role, checks_ok):
+def test_combo_preview_tab_and_settings(s, user_client, checks_ok):
     make_project(s)
-    dev = as_role("developer")
-    p = make_combo(s, dev)
+    c = user_client
+    p = make_combo(s, c)
     b = p.branches[0]
     b.last_commit_sha = "c" * 40
     s.add(Build(branch_id=b.id, commit_sha="c" * 40, odoo_version="18.0", status="running",
@@ -146,22 +146,20 @@ def test_combo_preview_tab_and_settings(s, as_role, checks_ok):
                 dependency_refs=[{"name": "payroll_zm", "repo_url": "", "branch": "v18-astro",
                                   "sha": "abcdef1234", "source": "branch"}]))
     s.commit()
-    c = as_role("tester")
     page = c.get(f"/combos/{p.id}").text
     assert "Open hr-suite.preview.localhost" in page and "abcdef1" in page and "/18.0/hr-suite" in page
-    assert "?tab=settings" not in page  # testers see only the Preview tab
-    assert c.post(f"/combos/{p.id}/settings", data={"name": "x"}).status_code == 403
+    assert "?tab=settings" in page
     form = {"name": "HR suite", "slug": "hr-suite", "default_odoo_version": "19.0", "edition": "enterprise",
             "modules_to_install": ""}
-    assert dev.post(f"/combos/{p.id}/settings", data=form).status_code == 303
+    assert c.post(f"/combos/{p.id}/settings", data=form).status_code == 303
     s.expire_all()
     assert s.get(Project, p.id).default_odoo_version == "19.0"
     assert s.query(Build).filter_by(status="queued").count() == 1  # version change rebuilds
 
 
-def test_delete_combo(s, as_role, checks_ok):
+def test_delete_combo(s, user_client, checks_ok):
     make_project(s)
-    c = as_role("developer")
+    c = user_client
     p = make_combo(s, c)
     assert c.post(f"/combos/{p.id}/delete", data={"confirm_slug": "wrong"}).status_code == 303
     assert s.query(Project).filter_by(kind="combo").count() == 1
@@ -171,14 +169,14 @@ def test_delete_combo(s, as_role, checks_ok):
     assert s.query(ProjectDependency).count() == 0
 
 
-def test_board_combined_tab_and_friendly_link(s, as_role, checks_ok):
+def test_board_combined_tab_and_friendly_link(s, user_client, checks_ok):
     reg = make_project(s)
     make_branch(s, reg)
-    p = make_combo(s, as_role("developer"))
+    p = make_combo(s, user_client)
     b = p.branches[0]
     s.add(Build(branch_id=b.id, commit_sha="c" * 40, odoo_version="18.0", status="running", host=b.host))
     s.commit()
-    c = as_role("tester")
+    c = user_client
     board = c.get("/?project=combined").text
     assert "HR suite" in board and "combined" in board and "payroll_zm@v18-astro" in board
     assert ">v18<" not in board  # repo branches are not on the Combined tab
@@ -192,16 +190,8 @@ def test_board_combined_tab_and_friendly_link(s, as_role, checks_ok):
     assert "Combined previews" in listing and f"/combos/{p.id}" in listing
 
 
-def test_tester_cannot_create_combo(s, as_role):
-    make_project(s)
-    c = as_role("tester")
-    assert c.get("/combos/new").status_code == 403
-    assert c.post("/combos/new", data=combo_form()).status_code == 403
-    assert "New combined preview" not in c.get("/").text
-
-
-def test_repo_projects_unaffected(s, as_role, checks_ok):
+def test_repo_projects_unaffected(s, user_client, checks_ok):
     reg = make_project(s)
-    make_combo(s, as_role("developer"))
-    page = as_role("admin").get(f"/projects/{reg.id}").text
+    make_combo(s, user_client)
+    page = user_client.get(f"/projects/{reg.id}").text
     assert "Sync branches now" in page and "Dependencies" in page

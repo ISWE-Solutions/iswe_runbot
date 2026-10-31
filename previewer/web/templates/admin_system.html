@@ -120,8 +120,6 @@
 {{ pager(pg) }}
 
 {% elif tab == 'settings' %}
-{% set editable = can(user, 'admin') %}
-{% if not editable %}<p class="mb-3 text-sm text-gray-600">Only admins can change these.</p>{% endif %}
 <form method="post" action="/admin/system/settings" class="space-y-6 pb-2">
   {{ csrf() }}
   <div class="grid gap-6 lg:grid-cols-2">
@@ -131,27 +129,25 @@
       <div class="space-y-3">
       {% for key, label, kind, help in fields %}
         {% if kind == 'bool' %}
-        <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="{{ key }}" class="mt-1" {% if values[key] in ('1', 'on', 'true') %}checked{% endif %} {% if not editable %}disabled{% endif %}>
+        <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="{{ key }}" class="mt-1" {% if values[key] in ('1', 'on', 'true') %}checked{% endif %}>
           <span><span class="font-medium">{{ label }}</span>{% if help %}<span class="block text-xs text-gray-500">{{ help }}</span>{% endif %}</span></label>
         {% elif kind == 'secret' %}
         <div class="text-sm">
           <label for="slack_url" class="font-medium">{{ label }}</label>
           <span class="ml-1 text-xs {{ 'text-green-700' if slack_set else 'text-gray-500' }}">{{ '· set' if slack_set else '· not set' }}</span>
           <input id="slack_url" type="url" name="slack_webhook_url" autocomplete="off" placeholder="https://hooks.slack.com/services/…"
-                 class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" {% if not editable %}disabled{% endif %}>
+                 class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm">
           {% if errors.get(key) %}<p class="mt-1 text-xs text-red-700">{{ errors[key] }}</p>{% endif %}
           <p class="mt-1 text-xs text-gray-500">{{ help }}</p>
-          {% if editable %}
           <div class="mt-2 flex flex-wrap items-center gap-3">
             {% if slack_set %}<label class="flex items-center gap-1 text-xs"><input type="checkbox" name="slack_clear"> remove the saved URL</label>{% endif %}
             {% if slack_set %}<button type="button" hx-post="/admin/system/slack-test" hx-target="#slack-test" class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50">Send test message</button>{% endif %}
             <span id="slack-test"></span>
           </div>
-          {% endif %}
         </div>
         {% else %}
         <label class="block text-sm"><span class="font-medium">{{ label }}</span>
-          <input name="{{ key }}" value="{{ values[key] }}" {% if not editable %}disabled{% endif %}
+          <input name="{{ key }}" value="{{ values[key] }}"
                  inputmode="{{ 'decimal' if kind in ('int', 'percent', 'float') else 'text' }}"
                  class="mt-1 block w-40 rounded-md border {{ 'border-red-400' if errors.get(key) else 'border-gray-300' }} px-3 py-1.5 text-sm font-mono">
           {% if errors.get(key) %}<span class="mt-1 block text-xs text-red-700" data-field-error>{{ errors[key] }}</span>{% endif %}
@@ -163,12 +159,10 @@
     </fieldset>
   {% endfor %}
   </div>
-  {% if editable %}
   <div class="sticky bottom-0 z-10 -mx-1 flex items-center gap-3 border-t border-gray-200 bg-white/95 px-1 py-3 backdrop-blur">
     <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save settings</button>
     <span class="text-xs text-gray-500">Applies on the worker's next check; build slots after a worker restart.</span>
   </div>
-  {% endif %}
 </form>
 
 

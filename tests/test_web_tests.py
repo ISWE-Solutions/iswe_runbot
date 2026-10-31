@@ -5,7 +5,7 @@ from previewer.diagnose import Source
 from previewer.models import Branch, Build, Project
 from previewer.testresults import parse
 
-from test_web_app import as_role, client, make_branch, make_project  # noqa: F401
+from test_web_app import client, make_branch, make_project, user_client  # noqa: F401
 
 LOG = Path(__file__).parent / "fixtures" / "odoo_logs" / "19.0-tests.log"
 MOUNTS = {"/mnt/extra/0": Source("diag @ main", "https://github.com/acme/diag.git", "abc1234")}
@@ -23,10 +23,10 @@ def make_tested_build(s, b, status="running", test_status="failed") -> Build:
     return build
 
 
-def test_project_test_settings_save_and_validate(s, as_role):
+def test_project_test_settings_save_and_validate(s, user_client):
     p = make_project(s)
     assert p.run_tests is True and p.test_failure_mode == "warn"  # defaults: on, warn
-    c = as_role("admin")
+    c = user_client
     page = c.get(f"/projects/{p.id}?tab=settings").text
     assert "Run module tests during the build" in page and 'value="warn"' in page
     r = c.post(f"/projects/{p.id}/tests", data={"test_failure_mode": "fail", "test_tags": "/payroll_zm,-/payroll_zm:slow"})
@@ -40,28 +40,22 @@ def test_project_test_settings_save_and_validate(s, as_role):
     assert s.get(Project, p.id).run_tests is False  # rejected save changed nothing
 
 
-def test_project_test_settings_permissions(s, as_role):
-    p = make_project(s)
-    assert as_role("developer").post(f"/projects/{p.id}/tests", data={"run_tests": "on"}).status_code == 403
-    assert as_role("tester").post(f"/projects/{p.id}/tests", data={"run_tests": "on"}).status_code == 403
-
-
-def test_plain_previews_have_no_test_settings(s, as_role):
+def test_plain_previews_have_no_test_settings(s, user_client):
     p = make_project(s)
     p.kind, p.repo_url = "plain", ""
     s.commit()
     b = make_branch(s, p, name="combined", slug="combined")
-    c = as_role("admin")
+    c = user_client
     assert "Run module tests" not in c.get(f"/combos/{p.id}?tab=settings").text
     assert c.post(f"/projects/{p.id}/tests", data={"run_tests": "on"}).status_code == 404
     assert "Module tests:" not in c.get(f"/combos/{p.id}").text
     assert b
 
 
-def test_branch_override_rebuilds(s, as_role):
+def test_branch_override_rebuilds(s, user_client):
     p = make_project(s)
     b = make_branch(s, p)
-    c = as_role("developer")
+    c = user_client
     assert "Project default (run)" in c.get(f"/branches/{b.id}/settings").text
     r = c.post(f"/branches/{b.id}/settings", data={"run_tests_override": "off", "enabled": "on"})
     assert r.status_code == 303
@@ -71,11 +65,11 @@ def test_branch_override_rebuilds(s, as_role):
     assert s.query(Build).filter_by(status="queued").count() == 1
 
 
-def test_tests_tab_shows_failures_links_traceback_and_skips(s, as_role):
+def test_tests_tab_shows_failures_links_traceback_and_skips(s, user_client):
     p = make_project(s)
     b = make_branch(s, p)
     build = make_tested_build(s, b)
-    c = as_role("tester")
+    c = user_client
     page = c.get(f"/builds/{build.id}").text  # running with failed tests -> Tests tab first
     assert 'data-tab="tests" aria-selected="true"' in page
     assert "TestThings.test_fails" in page and "TestThings.test_errors" in page
@@ -85,11 +79,11 @@ def test_tests_tab_shows_failures_links_traceback_and_skips(s, as_role):
     assert "The preview still runs" in page
 
 
-def test_tests_tab_states_and_default_tab(s, as_role):
+def test_tests_tab_states_and_default_tab(s, user_client):
     p = make_project(s)
     b = make_branch(s, p)
     ok = make_tested_build(s, b, test_status="passed")
-    c = as_role("tester")
+    c = user_client
     page = c.get(f"/builds/{ok.id}").text
     assert 'data-tab="log" aria-selected="true"' in page and "42 test(s) passed" in page
     off = Build(branch_id=b.id, commit_sha="b" * 40, odoo_version="18.0", status="running", test_status="skipped")
@@ -103,13 +97,13 @@ def test_tests_tab_states_and_default_tab(s, as_role):
     assert "These modules have no tests" in c.get(f"/builds/{none.id}").text
 
 
-def test_board_and_rows_show_test_badges(s, as_role):
+def test_board_and_rows_show_test_badges(s, user_client):
     p = make_project(s)
     b = make_branch(s, p)
     b.enabled, b.sticky = True, True
     s.commit()
     make_tested_build(s, b, test_status="passed")
-    c = as_role("tester")
+    c = user_client
     board = c.get("/?project=all").text
     assert "✓ 42" in board and "Tests: 42 test(s) passed" in board
     bad = make_tested_build(s, b)

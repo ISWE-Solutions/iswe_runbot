@@ -1,4 +1,4 @@
-"""Shared web helpers: templates, auth/roles, CSRF, flash messages, pagination."""
+"""Shared web helpers: templates, auth, CSRF, flash messages, pagination."""
 import math
 import secrets
 from datetime import datetime, timezone
@@ -17,8 +17,6 @@ from ..models import User
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-ROLE_RANK = {"tester": 0, "developer": 1, "admin": 2}
-
 STATUS_CLASSES = {
     "queued": "bg-gray-200 text-gray-700",
     "building": "bg-blue-100 text-blue-800",
@@ -34,10 +32,6 @@ PER_PAGE = 10
 
 
 class LoginRequired(Exception):
-    pass
-
-
-class Forbidden(Exception):
     pass
 
 
@@ -77,17 +71,12 @@ def pop_flashes(request: Request) -> list[dict]:
     return request.session.pop("flashes", [])
 
 
-def can(user: User | None, role: str) -> bool:
-    return bool(user and user.active and ROLE_RANK.get(user.role, -1) >= ROLE_RANK[role])
-
-
 templates.env.filters["ago"] = ago
 templates.env.globals.update(
     settings=get_settings(),
     status_class=lambda st: STATUS_CLASSES.get(st or "none", STATUS_CLASSES["none"]),
     csrf_token=csrf_token,
     pop_flashes=pop_flashes,
-    can=can,
 )
 
 
@@ -115,20 +104,6 @@ def current_user(request: Request, s: Session = Depends(get_db)) -> User:
         raise LoginRequired()
     request.state.user = user
     return user
-
-
-def require(role: str):
-    def dep(user: User = Depends(current_user)) -> User:
-        if not can(user, role):
-            raise Forbidden()
-        return user
-
-    return dep
-
-
-tester = require("tester")
-developer = require("developer")
-admin = require("admin")
 
 
 # ---------- CSRF (app-wide dependency) ----------

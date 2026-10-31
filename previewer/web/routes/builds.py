@@ -10,7 +10,7 @@ from ... import jobs
 from ...config import get_settings
 from ...db import get_db
 from ...models import Build, Job, User, utcnow
-from ..deps import ACTIVE_STATUSES, developer, flash, render, tester
+from ..deps import ACTIVE_STATUSES, current_user, flash, render
 from .branches import _done
 
 router = APIRouter()
@@ -53,7 +53,7 @@ def still_writing(build: Build) -> bool:
 
 @router.get("/builds/{build_id}")
 def build_page(build_id: int, request: Request, tab: str = "", s: Session = Depends(get_db),
-               user: User = Depends(tester)):
+               user: User = Depends(current_user)):
     build = get_build(s, build_id)
     path = log_file(build)
     size = path.stat().st_size if path.exists() else 0
@@ -69,7 +69,7 @@ def build_page(build_id: int, request: Request, tab: str = "", s: Session = Depe
 
 @router.get("/builds/{build_id}/log")
 def log_chunk(build_id: int, request: Request, offset: int = 0, s: Session = Depends(get_db),
-              user: User = Depends(tester)):
+              user: User = Depends(current_user)):
     """Appends new bytes to #log (out-of-band) and returns the next poller."""
     build = get_build(s, build_id)
     path = log_file(build)
@@ -102,7 +102,7 @@ def render_status(build: Build) -> str:
 
 
 @router.get("/builds/{build_id}/log/download")
-def download_log(build_id: int, s: Session = Depends(get_db), user: User = Depends(tester)):
+def download_log(build_id: int, s: Session = Depends(get_db), user: User = Depends(current_user)):
     build = get_build(s, build_id)
     path = log_file(build)
     if not path.exists():
@@ -150,7 +150,7 @@ def flash_removed(request: Request, branch, build_id: int, outcome: str) -> None
 
 @router.post("/builds/{build_id}/delete")
 def delete_build(build_id: int, request: Request, s: Session = Depends(get_db),
-                 user: User = Depends(developer)):
+                 user: User = Depends(current_user)):
     build = get_build(s, build_id)
     branch = build.branch
     outcome = remove_build(s, build)

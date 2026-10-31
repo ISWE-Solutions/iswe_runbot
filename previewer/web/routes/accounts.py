@@ -10,7 +10,7 @@ from ...db import get_db
 from ...models import GithubCredential, User, utcnow
 from ...security import decrypt, encrypt
 from .. import accounts
-from ..deps import admin, developer, flash, paginate, render
+from ..deps import current_user, flash, paginate, render
 
 router = APIRouter(prefix="/admin/github-accounts")
 
@@ -24,7 +24,7 @@ def get_account(s: Session, cid: int) -> GithubCredential:
 
 @router.get("")
 def list_accounts(request: Request, q: str = "", page: int = 1, s: Session = Depends(get_db),
-                  user: User = Depends(developer)):
+                  user: User = Depends(current_user)):
     stmt = select(GithubCredential).order_by(GithubCredential.is_default.desc(), GithubCredential.name)
     if q:
         stmt = stmt.where(or_(GithubCredential.name.ilike(f"%{q}%"),
@@ -57,12 +57,12 @@ def _form(request: Request, account: GithubCredential | None, values: dict, erro
 
 
 @router.get("/new")
-def new_account(request: Request, user: User = Depends(admin)):
+def new_account(request: Request, user: User = Depends(current_user)):
     return _form(request, None, {"name": "", "username": ""}, {})
 
 
 @router.post("/new")
-async def create_account(request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+async def create_account(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     data, errors = _validate(s, await request.form(), None)
     if errors:
         return _form(request, None, data, errors, 400)
@@ -77,14 +77,14 @@ async def create_account(request: Request, s: Session = Depends(get_db), user: U
 
 
 @router.get("/{cid}/edit")
-def edit_account(cid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+def edit_account(cid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     c = get_account(s, cid)
     return _form(request, c, {"name": c.name, "username": c.username}, {})
 
 
 @router.post("/{cid}/edit")
 async def update_account(cid: int, request: Request, s: Session = Depends(get_db),
-                         user: User = Depends(admin)):
+                         user: User = Depends(current_user)):
     c = get_account(s, cid)
     data, errors = _validate(s, await request.form(), c)
     if errors:
@@ -100,7 +100,7 @@ async def update_account(cid: int, request: Request, s: Session = Depends(get_db
 
 
 @router.post("/{cid}/default")
-def make_default(cid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+def make_default(cid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     c = get_account(s, cid)
     for other in s.scalars(select(GithubCredential).where(GithubCredential.is_default.is_(True))):
         other.is_default = False
@@ -114,7 +114,7 @@ def make_default(cid: int, request: Request, s: Session = Depends(get_db), user:
 
 
 @router.post("/{cid}/delete")
-def delete_account(cid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+def delete_account(cid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     c = get_account(s, cid)
     if c.is_default:
         flash(request, f"{c.name} is the default account. Make another account the default first.", "error")
@@ -134,7 +134,7 @@ def delete_account(cid: int, request: Request, s: Session = Depends(get_db), use
 
 
 @router.post("/{cid}/test")
-async def test_account(cid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(admin)):
+async def test_account(cid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     """HTMX: who the token authenticates as, its rate limit, and optionally a repo's readability."""
     c = get_account(s, cid)
     form = await request.form()

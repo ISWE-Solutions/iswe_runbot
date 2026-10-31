@@ -12,9 +12,9 @@
   {% endif %}
   {% if not page.items %}
   <div class="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600">
-    {% if combined %}No combined or plain Odoo previews yet.{% if can(user, 'developer') %} <a class="text-indigo-600 hover:underline" href="/combos/new">Combine repositories</a> or <a class="text-indigo-600 hover:underline" href="/try">try a clean Odoo</a>.{% endif %}
+    {% if combined %}No combined or plain Odoo previews yet. <a class="text-indigo-600 hover:underline" href="/combos/new">Combine repositories</a> or <a class="text-indigo-600 hover:underline" href="/try">try a clean Odoo</a>.
     {% elif q or show != 'all' %}No branches match these filters.
-    {% elif not projects %}No projects yet.{% if can(user, 'admin') %} <a class="text-indigo-600 hover:underline" href="/projects/new">Add the first one</a>.{% endif %}
+    {% elif not projects %}No projects yet. <a class="text-indigo-600 hover:underline" href="/projects/new">Add the first one</a>.
     {% elif unselected %}No branch is selected for building yet.
     {% else %}No branches yet. Open a project and press “Sync branches now”.{% endif %}
   </div>
@@ -25,12 +25,9 @@
     <div class="grid gap-2 px-3 py-2.5 lg:grid-cols-[15rem_minmax(0,1fr)] {% if not b.enabled %}opacity-60{% endif %}">
       <div class="min-w-0">
         <div class="flex items-center gap-1.5">
-          {% if can(user, 'developer') %}
           <button hx-post="/branches/{{ b.id }}/sticky?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML"
                   title="{{ 'Starred main branch: click to unstar' if b.sticky else 'Star as a main branch (listed first)' }}" aria-label="{{ 'Unstar' if b.sticky else 'Star' }} {{ b.name }}"
                   class="shrink-0 {{ 'text-amber-400 hover:text-amber-500' if b.sticky else 'text-gray-300 hover:text-amber-400' }}">{{ icon('star' if b.sticky else 'star-outline') }}</button>
-          {% elif b.sticky %}<span class="shrink-0 text-amber-400" title="Starred main branch">{{ icon('star') }}</span>
-          {% else %}<span class="w-4 shrink-0"></span>{% endif %}
           {% if b.project.is_combo %}
           <a href="/combos/{{ b.project_id }}" class="truncate font-semibold text-indigo-700 hover:underline">{{ b.project.name }}</a>
           {% if b.project.is_plain %}
@@ -57,7 +54,7 @@
           {% if b.project.preview_auth_required %}<span class="text-[11px] text-gray-400" title="Opening the preview needs a dashboard login"><i class="bi bi-lock-fill"></i></span>
           {% else %}<span class="text-[11px] text-emerald-600" title="Public demo: anyone with the link can open the preview"><i class="bi bi-globe2"></i></span>{% endif %}
           {% if b.stale_since %}<span class="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600" title="Stopped as stale on {{ b.stale_since.strftime('%Y-%m-%d') }}: no new commits for a while">⏸ stale</span>{% endif %}
-          {% if can(user, 'developer') and b.enabled %}
+          {% if b.enabled %}
           <button hx-post="/branches/{{ b.id }}/rebuild?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML" class="{{ ibtn }}" title="Rebuild {{ b.name }}">{{ icon('rebuild', 'h-3.5 w-3.5') }}</button>
           {% endif %}
           {% if (not live and b.builds|selectattr('status', 'in', ['sleeping', 'stopped'])|list) or (live and live.status == 'sleeping') %}
@@ -65,10 +62,8 @@
           {% endif %}
           {% if not b.auto_rebuild %}
             {% set paused_cls = "inline-flex items-center gap-0.5 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-800 ring-1 ring-amber-200" %}
-            {% if can(user, 'developer') %}
             <button hx-post="/branches/{{ b.id }}/auto-rebuild?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML" class="{{ paused_cls }} hover:bg-amber-100"
                     title="Auto-rebuild off: new commits are not built. Click to resume.">{{ icon('pause', 'h-3 w-3') }} paused</button>
-            {% else %}<span class="{{ paused_cls }}" title="Auto-rebuild off: new commits are not built">{{ icon('pause', 'h-3 w-3') }} paused</span>{% endif %}
           {% endif %}
           {% if b.host_conflict %}<span class="text-[11px] text-amber-700" title="{{ b.host_conflict }}">⚠ host clash</span>{% endif %}
         </div>
@@ -93,7 +88,7 @@
             <a href="{{ settings.preview_url(bd.host) }}" target="_blank" rel="noopener" class="{{ ibtn }}" title="Open preview (login admin / admin)">{{ icon('open', 'h-3.5 w-3.5') }}</a>
             {% endif %}
             <a href="/builds/{{ bd.id }}" class="{{ ibtn }}" title="Build #{{ bd.id }}: logs and details">{{ icon('gear', 'h-3.5 w-3.5') }}</a>
-            {% if can(user, 'developer') and bd.status != 'building' %}
+            {% if bd.status != 'building' %}
             <button hx-post="/builds/{{ bd.id }}/delete?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML"
                     hx-confirm="{% if bd.status in ('running', 'sleeping', 'stopped') %}Delete build #{{ bd.id }}? This stops the {{ b.name }} preview.{% else %}Delete build #{{ bd.id }} and its log?{% endif %}"
                     class="{{ ibtn }} hover:border-red-200 hover:text-red-600" title="Delete build #{{ bd.id }}" aria-label="Delete build #{{ bd.id }}">{{ icon('trash', 'h-3.5 w-3.5') }}</button>

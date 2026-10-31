@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from ...db import get_db
 from ...models import Branch, ModuleSet, Project, User
 from .. import module_view as mv
-from ..deps import developer, flash, paginate_list, render, tester
+from ..deps import current_user, flash, paginate_list, render
 
 router = APIRouter()
 
@@ -57,7 +57,7 @@ def modules_ctx(s: Session, p: Project, mq: str, page: int) -> dict:
 
 @router.get("/projects/{pid}/modules/available")
 def available_modules(pid: int, request: Request, branch_id: int | None = None,
-                      s: Session = Depends(get_db), user: User = Depends(tester)):
+                      s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = get_owner(s, pid)
     b = pick_branch(p, branch_id)
     av = mv.available(b) if b else None
@@ -66,7 +66,7 @@ def available_modules(pid: int, request: Request, branch_id: int | None = None,
 
 @router.get("/projects/{pid}/modules/checkboxes")
 def module_checkboxes(pid: int, request: Request, branch_id: int | None = None, chosen: str = "",
-                      s: Session = Depends(get_db), user: User = Depends(tester)):
+                      s: Session = Depends(get_db), user: User = Depends(current_user)):
     """Module picker for the module set form; keeps what is already chosen."""
     p = get_owner(s, pid)
     b = pick_branch(p, branch_id)
@@ -93,7 +93,7 @@ def _plan_response(request: Request, p: Project, b: Branch | None, requested: li
 
 @router.post("/projects/{pid}/modules/plan")
 async def plan_preview(pid: int, request: Request, s: Session = Depends(get_db),
-                       user: User = Depends(tester)):
+                       user: User = Depends(current_user)):
     p = get_owner(s, pid)
     form = await request.form()
     b = pick_branch(p, int(form.get("branch_id") or 0) or None)
@@ -102,7 +102,7 @@ async def plan_preview(pid: int, request: Request, s: Session = Depends(get_db),
 
 
 @router.post("/branches/{bid}/plan")
-def branch_plan(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(tester)):
+def branch_plan(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     b = s.get(Branch, bid)
     if not b:
         raise HTTPException(404)
@@ -141,14 +141,14 @@ def _form(request: Request, p: Project, ms: ModuleSet | None, values: dict, erro
 
 @router.get("/projects/{pid}/module-sets/new")
 def new_set(pid: int, request: Request, branch_id: int | None = None, s: Session = Depends(get_db),
-            user: User = Depends(developer)):
+            user: User = Depends(current_user)):
     p = get_owner(s, pid)
     return _form(request, p, None, {"name": "", "description": "", "modules": ""}, {}, branch_id)
 
 
 @router.post("/projects/{pid}/module-sets/new")
 async def create_set(pid: int, request: Request, s: Session = Depends(get_db),
-                     user: User = Depends(developer)):
+                     user: User = Depends(current_user)):
     p = get_owner(s, pid)
     form = await request.form()
     data, errors = _validate_set(form, p, None)
@@ -166,7 +166,7 @@ async def create_set(pid: int, request: Request, s: Session = Depends(get_db),
 
 @router.get("/projects/{pid}/module-sets/{sid}/edit")
 def edit_set(pid: int, sid: int, request: Request, branch_id: int | None = None,
-             s: Session = Depends(get_db), user: User = Depends(developer)):
+             s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = get_owner(s, pid)
     ms = get_set(p, sid)
     return _form(request, p, ms, {"name": ms.name, "description": ms.description,
@@ -175,7 +175,7 @@ def edit_set(pid: int, sid: int, request: Request, branch_id: int | None = None,
 
 @router.post("/projects/{pid}/module-sets/{sid}/edit")
 async def update_set(pid: int, sid: int, request: Request, s: Session = Depends(get_db),
-                     user: User = Depends(developer)):
+                     user: User = Depends(current_user)):
     p = get_owner(s, pid)
     ms = get_set(p, sid)
     form = await request.form()
@@ -196,7 +196,7 @@ async def update_set(pid: int, sid: int, request: Request, s: Session = Depends(
 
 @router.post("/projects/{pid}/module-sets/{sid}/delete")
 def delete_set(pid: int, sid: int, request: Request, s: Session = Depends(get_db),
-               user: User = Depends(developer)):
+               user: User = Depends(current_user)):
     p = get_owner(s, pid)
     ms = get_set(p, sid)
     users = mv.set_users(s, ms)
@@ -215,7 +215,7 @@ def delete_set(pid: int, sid: int, request: Request, s: Session = Depends(get_db
 
 @router.post("/projects/{pid}/module-sets/default")
 async def set_default(pid: int, request: Request, s: Session = Depends(get_db),
-                      user: User = Depends(developer)):
+                      user: User = Depends(current_user)):
     p = get_owner(s, pid)
     form = await request.form()
     sid = int(form.get("module_set_id") or 0)
@@ -229,7 +229,7 @@ async def set_default(pid: int, request: Request, s: Session = Depends(get_db),
 
 @router.post("/projects/{pid}/module-sets/top-level")
 async def set_from_top_level(pid: int, request: Request, s: Session = Depends(get_db),
-                             user: User = Depends(developer)):
+                             user: User = Depends(current_user)):
     """One click: a module set of the top-level modules (installing them installs the rest)."""
     p = get_owner(s, pid)
     form = await request.form()

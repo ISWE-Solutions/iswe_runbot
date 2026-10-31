@@ -3,7 +3,6 @@
 {% from "_tests.html" import test_badge_html with context %}
 {% set qs = '?q=' ~ (q|urlencode) ~ '&status=' ~ (status|urlencode) ~ '&sel=' ~ sel ~ '&page=' ~ page.page %}
 {% set btn = "rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50" %}
-{% set dev = can(user, 'developer') %}
 <div id="branches-table" {% if polling %}hx-get="/projects/{{ project.id }}/branches{{ qs }}" hx-trigger="every 5s [pvNoneTicked()]" hx-swap="outerHTML"{% endif %}>
   {% if sync_pending %}<p class="mb-3 text-sm text-blue-700">Listing branches from GitHub…</p>{% endif %}
   <div class="mb-3 flex flex-wrap items-center gap-2 text-sm">
@@ -14,7 +13,7 @@
       {% endfor %}
     </div>
     <span class="text-xs text-gray-500">{{ n_selected }} of {{ n_listed }} branches selected for building</span>
-    {% if dev and page.items %}
+    {% if page.items %}
     <span class="ml-auto flex gap-1">
       <button type="button" class="{{ btn }}" hx-post="/projects/{{ project.id }}/branches/bulk{{ qs }}" hx-include="#bulk-form" hx-vals='{"action": "select"}' hx-target="#branches-table" hx-swap="outerHTML">Build selected</button>
       <button type="button" class="{{ btn }}" hx-post="/projects/{{ project.id }}/branches/bulk{{ qs }}" hx-include="#bulk-form" hx-vals='{"action": "unselect"}' hx-target="#branches-table" hx-swap="outerHTML" hx-confirm="Unselect the ticked branches? Their previews stop.">Unselect</button>
@@ -39,8 +38,8 @@
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <thead class="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
         <tr>
-          {% if dev %}<th class="w-8 px-3 py-3"><input type="checkbox" aria-label="Tick all" class="h-4 w-4 rounded border-gray-300"
-              onclick="document.querySelectorAll('#bulk-form input[name=ids]').forEach(c => c.checked = this.checked)"></th>{% endif %}
+          <th class="w-8 px-3 py-3"><input type="checkbox" aria-label="Tick all" class="h-4 w-4 rounded border-gray-300"
+              onclick="document.querySelectorAll('#bulk-form input[name=ids]').forEach(c => c.checked = this.checked)"></th>
           <th class="px-3 py-3">Build</th><th class="px-3 py-3">Branch</th><th class="px-3 py-3">Odoo</th><th class="px-3 py-3">Status</th>
           <th class="px-3 py-3">Last commit</th><th class="px-3 py-3">Preview</th><th class="px-3 py-3 text-right">Actions</th>
         </tr>
@@ -49,9 +48,9 @@
       {% for b in page.items %}
         {% set latest = b.latest_build %}{% set live = b.live_build %}{% set problems = blocked(b) %}
         <tr class="align-top {% if b.deleted_at or not b.enabled %}bg-gray-50 text-gray-500{% endif %}">
-          {% if dev %}<td class="px-3 py-3">{% if not b.deleted_at %}<input type="checkbox" name="ids" value="{{ b.id }}" aria-label="Tick {{ b.name }}" class="h-4 w-4 rounded border-gray-300">{% endif %}</td>{% endif %}
+          <td class="px-3 py-3">{% if not b.deleted_at %}<input type="checkbox" name="ids" value="{{ b.id }}" aria-label="Tick {{ b.name }}" class="h-4 w-4 rounded border-gray-300">{% endif %}</td>
           <td class="px-3 py-3">
-            {% if dev and not b.deleted_at %}
+            {% if not b.deleted_at %}
             <button type="button" role="switch" aria-checked="{{ 'true' if b.enabled else 'false' }}"
                     title="{{ 'Selected: click to stop building this branch' if b.enabled else 'Not selected: click to check dependencies and build' }}"
                     hx-post="/branches/{{ b.id }}/{{ 'unselect' if b.enabled else 'select' }}{{ qs }}" hx-target="#branches-table" hx-swap="outerHTML"
@@ -61,7 +60,7 @@
               <span class="sr-only">{{ 'Selected' if b.enabled else 'Not selected' }}</span>
             </button>
             {% else %}<span class="text-xs">{{ 'selected' if b.enabled else '—' }}</span>{% endif %}
-            {% if dev and not b.deleted_at %}
+            {% if not b.deleted_at %}
             <button type="button" hx-post="/branches/{{ b.id }}/auto-rebuild{{ qs }}" hx-target="#branches-table" hx-swap="outerHTML"
                     title="{{ 'Auto-rebuild on: new commits rebuild this branch. Click to pause.' if b.auto_rebuild else 'Auto-rebuild paused: new commits are not built. Click to resume.' }}"
                     class="mt-1.5 block whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] {{ 'text-gray-500 hover:bg-gray-100' if b.auto_rebuild else 'bg-amber-50 text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100' }}">{{ 'auto-rebuild' if b.auto_rebuild else '⏸ paused' }}</button>
@@ -84,18 +83,16 @@
             {% if problems %}
             <div class="mt-1 max-w-xs rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-800">
               <span class="font-medium">Blocked:</span> <span class="whitespace-pre-line">{% for r in problems %}{{ r.message }}{% if not loop.last %}{{ '\n' if '\n' in r.message else '; ' }}{% endif %}{% endfor %}</span>
-              {% if dev %}
               <div class="mt-1 flex gap-1">
                 <button type="button" class="{{ btn }}" hx-post="/branches/{{ b.id }}/select{{ qs }}" hx-target="#branches-table" hx-swap="outerHTML">Check again</button>
                 <button type="button" class="{{ btn }}" hx-post="/branches/{{ b.id }}/build-anyway{{ qs }}" hx-target="#branches-table" hx-swap="outerHTML" hx-confirm="Build {{ b.name }} even though the dependency check failed?">Build anyway</button>
               </div>
-              {% endif %}
             </div>
             {% endif %}
             <div id="check-{{ b.id }}"></div>
           </td>
           <td class="px-3 py-3">
-            {% if dev and not b.deleted_at %}
+            {% if not b.deleted_at %}
             <select name="odoo_version" class="rounded-md border border-gray-300 px-2 py-1 text-sm"
                     hx-post="/branches/{{ b.id }}/version{{ qs }}" hx-trigger="change" hx-target="#branches-table" hx-swap="outerHTML">
               {% for v in versions %}<option value="{{ v }}" {% if v == b.effective_version %}selected{% endif %}>{{ v }}</option>{% endfor %}
@@ -136,14 +133,14 @@
             <div class="flex flex-wrap justify-end gap-1">
               <button type="button" class="{{ btn }}" hx-post="/branches/{{ b.id }}/check" hx-target="#check-{{ b.id }}" title="Check that every dependency branch exists for Odoo {{ b.effective_version }}">Check</button>
               {% if latest %}<a href="/builds/{{ latest.id }}" class="{{ btn }}">Logs</a>{% endif %}
-              {% if dev and not b.deleted_at and b.enabled %}
+              {% if not b.deleted_at and b.enabled %}
                 <button type="button" class="{{ btn }}" hx-post="/branches/{{ b.id }}/rebuild{{ qs }}" hx-target="#branches-table" hx-swap="outerHTML">Rebuild</button>
                 {% if live %}<button type="button" class="{{ btn }}" hx-post="/branches/{{ b.id }}/stop{{ qs }}" hx-target="#branches-table" hx-swap="outerHTML" hx-confirm="Stop the {{ b.name }} preview?">Stop</button>{% endif %}
               {% endif %}
               {% if (not live and b.builds|selectattr('status', 'in', ['sleeping', 'stopped'])|list) or (live and live.status == 'sleeping') %}
                 <button type="button" class="{{ btn }}" hx-post="/branches/{{ b.id }}/wake{{ qs }}" hx-target="#branches-table" hx-swap="outerHTML">Wake</button>
               {% endif %}
-              {% if dev and not b.deleted_at %}<a href="/branches/{{ b.id }}/settings" class="{{ btn }}">Settings</a>{% endif %}
+              {% if not b.deleted_at %}<a href="/branches/{{ b.id }}/settings" class="{{ btn }}">Settings</a>{% endif %}
             </div>
           </td>
         </tr>

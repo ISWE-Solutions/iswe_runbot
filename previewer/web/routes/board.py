@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from ...db import get_db
 from ...models import Branch, Build, Project, User
-from ..deps import paginate_list, render, tester
+from ..deps import current_user, paginate_list, render
 
 router = APIRouter()
 
@@ -123,11 +123,11 @@ def board_ctx(request: Request, s: Session, project: str | None, show: str, q: s
 
 @router.get("/")
 def board(request: Request, project: str | None = None, show: str = "all", q: str = "",
-          page: int = 1, s: Session = Depends(get_db), user: User = Depends(tester)):
+          page: int = 1, s: Session = Depends(get_db), user: User = Depends(current_user)):
     return render(request, "board.html", board_ctx(request, s, project, show, q, page))
 
 
 @router.get("/board/rows")
 def board_rows(request: Request, project: str | None = None, show: str = "all", q: str = "",
-               page: int = 1, s: Session = Depends(get_db), user: User = Depends(tester)):
+               page: int = 1, s: Session = Depends(get_db), user: User = Depends(current_user)):
     return render(request, "_board_rows.html", board_ctx(request, s, project, show, q, page))

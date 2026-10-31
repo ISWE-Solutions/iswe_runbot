@@ -19,7 +19,7 @@
 {% if dw %}
 <div class="alert-strip error mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
   <b>Disk {{ dw.percent_used|round(0)|int }}% full</b> ({{ dw.free_gb }} GB free). New builds pause when space runs low.
-  {% if can(user, 'developer') %}<a href="/admin/system" class="underline">System page</a>{% endif %}
+  <a href="/admin/system" class="underline">System page</a>
 </div>
 {% endif %}
 <div class="mb-4 flex flex-wrap items-center gap-2">
@@ -38,12 +38,10 @@
     <button class="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-sm hover:bg-gray-50">Search</button>
   </form>
   {% include "_board_counters.html" %}
-  {% if can(user, 'developer') %}
   <a href="/combos/new" class="rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-sm text-indigo-700 hover:bg-indigo-50"
      title="Pick repositories and branches to install together in one preview">New combined preview</a>
   <a href="/try" class="rounded-md border border-emerald-200 bg-white px-2.5 py-1 text-sm text-emerald-700 hover:bg-emerald-50"
      title="A clean Odoo version, with or without demo data, no custom code">Try Odoo</a>
-  {% endif %}
 </div>
 {% include "_board_rows.html" %}
 {% endblock %}

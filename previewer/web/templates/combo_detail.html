@@ -28,17 +28,16 @@
   </div>
   <div class="ml-auto flex flex-wrap gap-2">
     <a href="/?project=combined" class="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm hover:bg-gray-50">Board</a>
-    {% if can(user, 'developer') and not project.is_plain %}
+    {% if not project.is_plain %}
     <form method="post" action="/combos/{{ project.id }}/refresh">{{ csrf() }}
       <button class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700" title="Check the parts' branches for new commits">Refresh parts</button>
     </form>
     {% endif %}
   </div>
 </div>
-{% set dev = can(user, 'developer') %}
 {% set combo_tabs = [('preview', 'Preview'), ('builds', 'Builds', builds.total if builds is defined else none), ('plan', 'Install plan')]
-   + ([('parts', 'Parts', project.dependencies|length)] if dev and not project.is_plain else [])
-   + [('modules', 'Modules')] + ([('settings', 'Settings')] if dev else []) %}
+   + ([('parts', 'Parts', project.dependencies|length)] if not project.is_plain else [])
+   + [('modules', 'Modules'), ('settings', 'Settings')] %}
 {{ tabs(combo_tabs, tab, '/combos/' ~ project.id, 'Combined preview sections') }}
 
 {% if tab == 'preview' %}
@@ -46,12 +45,10 @@
 {% if problems %}
 <div class="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
   <span class="font-medium">Blocked:</span> <span class="whitespace-pre-line">{% for r in problems %}{{ r.message }}{% if not loop.last %}{{ '\n' if '\n' in r.message else '; ' }}{% endif %}{% endfor %}</span>
-  {% if can(user, 'developer') %}
   <span class="mt-2 flex flex-wrap gap-2">
     <form method="post" action="/branches/{{ branch.id }}/select">{{ csrf() }}<button class="{{ btn }}">Check again</button></form>
     <form method="post" action="/branches/{{ branch.id }}/build-anyway" onsubmit="return confirm('Build this combined preview even though the check failed?')">{{ csrf() }}<button class="{{ btn }}">Build anyway</button></form>
   </span>
-  {% endif %}
 </div>
 {% endif %}
 {% set nb = unbuilt_commit(branch) %}
@@ -98,11 +95,9 @@
   <div class="rounded-lg border border-gray-200 bg-white p-5">
     <h2 class="text-sm font-medium text-gray-500">Actions</h2>
     <div class="mt-3 flex flex-wrap gap-2">
-      {% if can(user, 'developer') %}
       <form method="post" action="/branches/{{ branch.id }}/rebuild">{{ csrf() }}<button class="{{ btn }}">Rebuild</button></form>
       {% if live %}<form method="post" action="/branches/{{ branch.id }}/stop">{{ csrf() }}<button class="{{ btn }}">Stop</button></form>{% endif %}
       {% if not project.is_plain %}<form method="post" action="/branches/{{ branch.id }}/auto-rebuild">{{ csrf() }}<button class="{{ btn }}" title="{{ 'Stop rebuilding when a part gets new commits' if branch.auto_rebuild else 'Rebuild again when a part gets new commits' }}">{{ 'Pause auto-rebuild' if branch.auto_rebuild else 'Resume auto-rebuild' }}</button></form>{% endif %}
-      {% endif %}
       {% if (not live and branch.builds|selectattr('status', 'in', ['sleeping', 'stopped'])|list) or (live and live.status == 'sleeping') %}
       <form method="post" action="/branches/{{ branch.id }}/wake">{{ csrf() }}<button class="{{ btn }}">Wake</button></form>
       {% endif %}

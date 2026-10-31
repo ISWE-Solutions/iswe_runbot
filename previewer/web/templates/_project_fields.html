@@ -17,7 +17,7 @@
       {% for a in accounts %}<option value="{{ a.id }}" {% if values.credential_id|string == a.id|string %}selected{% endif %}>{{ a.name }}{% if a.username %} · {{ a.username }}{% endif %}{% if a.is_default %} (default){% endif %}</option>{% endfor %}
     </select>{{ field_error(errors, 'credential_id') }}
     <span class="mt-1 block text-xs font-normal text-gray-500">Used to pull this repository, and dependency repos set to "Same as project".
-      {% if can(user, 'developer') %}<a href="/admin/github-accounts" class="text-indigo-600 hover:underline">Manage Git credentials</a>{% endif %}</span>
+      <a href="/admin/github-accounts" class="text-indigo-600 hover:underline">Manage Git credentials</a></span>
   </label>
   <div class="sm:col-span-2">
     <button type="button" hx-post="/projects/test-connection" hx-include="closest form" hx-target="#conn-result" hx-indicator="#conn-spin"

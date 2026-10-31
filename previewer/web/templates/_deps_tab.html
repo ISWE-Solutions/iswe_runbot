@@ -12,9 +12,7 @@
     <input type="search" name="dq" value="{{ dq }}" placeholder="Search dependencies" aria-label="Search dependencies" class="w-56 rounded-md border border-gray-300 px-3 py-1.5 text-sm">
     <button class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Search</button>
   </form>
-  {% if can(user, 'admin') %}
   <a href="/projects/{{ project.id }}/deps/new" class="ml-auto rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add dependency</a>
-  {% endif %}
 </div>
 <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
   <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -35,14 +33,12 @@
         {% endfor %}
         <td class="px-4 py-3 text-xs text-gray-600">{{ dep_account[d.id] }}</td>
         <td class="px-4 py-3">
-          {% if can(user, 'admin') %}
           <div class="flex flex-wrap justify-end gap-1">
             <a href="/projects/{{ project.id }}/deps/{{ d.id }}/edit" class="{{ btn }}">Edit</a>
             <form method="post" action="/projects/{{ project.id }}/deps/{{ d.id }}/move">{{ csrf() }}<input type="hidden" name="dir" value="up"><button class="{{ btn }}" title="Move up" aria-label="Move {{ d.root_module_name }} up" {% if loop.first and deps_page.page == 1 %}disabled{% endif %}>↑</button></form>
             <form method="post" action="/projects/{{ project.id }}/deps/{{ d.id }}/move">{{ csrf() }}<input type="hidden" name="dir" value="down"><button class="{{ btn }}" title="Move down" aria-label="Move {{ d.root_module_name }} down" {% if loop.last and not deps_page.has_next %}disabled{% endif %}>↓</button></form>
             <form method="post" action="/projects/{{ project.id }}/deps/{{ d.id }}/delete" onsubmit="return confirm('Remove dependency {{ d.root_module_name }}? Builds after this will not fetch it.')">{{ csrf() }}<button class="{{ btn }} text-red-700">Delete</button></form>
           </div>
-          {% endif %}
         </td>
       </tr>
     {% endfor %}
@@ -52,7 +48,7 @@
         <td class="px-4 py-3 text-xs text-gray-600">
           {% set repos = enterprise.values()|map(attribute='repo_url')|select|map('string')|unique|list %}
           {% for r in repos %}<div>{{ (github_base(r) or r)|replace('https://github.com/', '') }}</div>{% else %}not configured{% endfor %}
-          <div class="text-gray-400">set per Odoo version{% if can(user, 'admin') %} on the <a href="/admin/versions" class="text-indigo-600 hover:underline">Odoo versions</a> page{% endif %}</div>
+          <div class="text-gray-400">set per Odoo version on the <a href="/admin/versions" class="text-indigo-600 hover:underline">Odoo versions</a> page</div>
         </td>
         {% for v in dep_versions %}{% set av = enterprise.get(v) %}
         <td class="px-4 py-3 text-xs">

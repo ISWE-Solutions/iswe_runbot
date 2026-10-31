@@ -13,16 +13,13 @@
   </div>
   <div class="ml-auto flex flex-wrap gap-2">
     <a href="/?project={{ project.slug|urlencode }}" class="rounded-md border border-gray-300 bg-white px-4 py-1.5 text-sm hover:bg-gray-50">Board</a>
-    {% if can(user, 'developer') %}
     <form method="post" action="/projects/{{ project.id }}/sync">
       <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
       <button class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Sync branches now</button>
     </form>
-    {% endif %}
   </div>
 </div>
-{{ tabs([('branches', 'Branches'), ('deps', 'Dependencies', n_deps), ('modules', 'Modules', n_sets)]
-        + ([('settings', 'Settings')] if can(user, 'admin') else []), tab, '/projects/' ~ project.id, 'Project sections') }}
+{{ tabs([('branches', 'Branches'), ('deps', 'Dependencies', n_deps), ('modules', 'Modules', n_sets), ('settings', 'Settings')], tab, '/projects/' ~ project.id, 'Project sections') }}
 {% if tab == 'branches' %}
 <form method="get" class="mb-3 flex flex-wrap gap-2">
   <input type="hidden" name="tab" value="branches"><input type="hidden" name="sel" value="{{ sel }}">

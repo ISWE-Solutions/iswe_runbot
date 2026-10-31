@@ -33,7 +33,6 @@
       <h2 class="text-sm font-semibold">Project default</h2>
       <p class="text-sm text-gray-600">Now: {{ project_default }}</p>
     </div>
-    {% if can(user, 'developer') %}
     <form method="post" action="/projects/{{ project.id }}/module-sets/default" class="ml-auto flex flex-wrap items-center gap-2">{{ csrf() }}
       <select name="module_set_id" aria-label="Default module set" class="rounded-md border border-gray-300 px-3 py-1.5 text-sm">
         <option value="">No set ({{ ('modules list: ' ~ project.modules_to_install) if project.modules_to_install else ('just the base' if project.is_plain else ('every module of all parts' if project.is_combo else 'every module in the repo')) }})</option>
@@ -41,7 +40,6 @@
       </select>
       <button class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Set default</button>
     </form>
-    {% endif %}
   </div>
 </section>
 
@@ -53,9 +51,7 @@
       <input type="search" name="mq" value="{{ mq }}" placeholder="Search module sets" aria-label="Search module sets" class="w-56 rounded-md border border-gray-300 px-3 py-1.5 text-sm">
       <button class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Search</button>
     </form>
-    {% if can(user, 'developer') %}
     <a href="/projects/{{ project.id }}/module-sets/new" class="ml-auto rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add module set</a>
-    {% endif %}
   </div>
   <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
     <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -70,17 +66,15 @@
           <td class="px-4 py-2"><div class="flex flex-wrap gap-1">{% for x in m.module_list %}<code class="rounded bg-gray-100 px-1.5 py-0.5 text-xs">{{ x }}</code>{% endfor %}</div></td>
           <td class="px-4 py-2 text-xs text-gray-600">{{ set_users[m.id]|join(', ') or '—' }}</td>
           <td class="px-4 py-2">
-            {% if can(user, 'developer') %}
             <div class="flex flex-wrap justify-end gap-1">
               <a href="/projects/{{ project.id }}/module-sets/{{ m.id }}/edit" class="{{ btn }}">Edit</a>
               <form method="post" action="/projects/{{ project.id }}/module-sets/{{ m.id }}/delete" onsubmit="return confirm('Delete module set {{ m.name|e }}?{% if set_users[m.id] %} It is used by {{ set_users[m.id]|join(', ') }}.{% endif %}')">{{ csrf() }}
                 <button class="{{ btn }} text-red-700">Delete</button></form>
             </div>
-            {% endif %}
           </td>
         </tr>
       {% else %}
-        <tr><td colspan="4" class="px-4 py-4 text-gray-500">No module sets yet. {% if can(user, 'developer') %}Create one from the top-level modules on the <b>Available modules</b> view, or add your own.{% endif %}</td></tr>
+        <tr><td colspan="4" class="px-4 py-4 text-gray-500">No module sets yet. Create one from the top-level modules on the <b>Available modules</b> view, or add your own.</td></tr>
       {% endfor %}
       </tbody>
     </table>

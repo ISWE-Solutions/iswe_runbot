@@ -20,7 +20,7 @@ from ...naming import preview_host, slugify
 from ...security import random_secret
 from .. import accounts, selection
 from . import plain as plain_routes
-from ..deps import developer, flash, paginate, render, tester
+from ..deps import current_user, flash, paginate, render
 from ..views import version_choices
 from .dependencies import branch_names
 from .projects import _parse_modules, rehost_branches
@@ -164,13 +164,13 @@ def _load_branches(s: Session, part: dict) -> tuple[list[str] | None, str | None
 
 @router.get("/combos/part-row")
 def new_part_row(request: Request, i: int = 0, s: Session = Depends(get_db),
-                 user: User = Depends(developer)):
+                 user: User = Depends(current_user)):
     return render(request, "_combo_part_row.html", part_ctx(s, blank_part(i)))
 
 
 @router.post("/combos/part-row")
 async def refresh_part_row(request: Request, s: Session = Depends(get_db),
-                           user: User = Depends(developer)):
+                           user: User = Depends(current_user)):
     """HTMX: re-render one part row; picking a project prefills it; loads its branches."""
     form = await request.form()
     i = int(form.get("row") or 0)
@@ -264,7 +264,7 @@ def _outcome_flash(request: Request, p: Project, b: Branch, outcome: str, verb: 
 
 
 @router.get("/combos/new")
-def new_combo(request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+def new_combo(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     versions = version_choices(s)
     values = {"edition": "community", "default_odoo_version": versions[-1] if versions else ""}
     return render(request, "combo_form.html",
@@ -272,7 +272,7 @@ def new_combo(request: Request, s: Session = Depends(get_db), user: User = Depen
 
 
 @router.post("/combos/new")
-async def create_combo(request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+async def create_combo(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     form = await request.form()
     data, errors = validate_settings(s, form, None)
     parts, perrors = parse_parts(s, form)
@@ -305,7 +305,7 @@ def preview_ctx(s: Session, p: Project, b: Branch, page: int) -> dict:
 
 @router.get("/combos/{pid}")
 def combo_detail(pid: int, request: Request, tab: str = "preview", page: int = 1, mq: str = "",
-                 s: Session = Depends(get_db), user: User = Depends(tester)):
+                 s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = get_combo(s, pid)
     b = combo_branch(p)
     tab = tab if tab in (PLAIN_TABS if p.is_plain else TABS) else "preview"
@@ -327,7 +327,7 @@ def combo_detail(pid: int, request: Request, tab: str = "preview", page: int = 1
 
 @router.post("/combos/{pid}/parts")
 async def update_parts(pid: int, request: Request, s: Session = Depends(get_db),
-                       user: User = Depends(developer)):
+                       user: User = Depends(current_user)):
     p = get_combo(s, pid)
     b = combo_branch(p)
     form = await request.form()
@@ -372,7 +372,7 @@ def _plain_settings(s: Session, form, p: Project) -> tuple[dict, dict]:
 
 @router.post("/combos/{pid}/settings")
 async def update_settings(pid: int, request: Request, s: Session = Depends(get_db),
-                          user: User = Depends(developer)):
+                          user: User = Depends(current_user)):
     p = get_combo(s, pid)
     b = combo_branch(p)
     form = await request.form()
@@ -414,7 +414,7 @@ async def update_settings(pid: int, request: Request, s: Session = Depends(get_d
 
 
 @router.post("/combos/{pid}/refresh")
-def refresh(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(developer)):
+def refresh(pid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
     p = get_combo(s, pid)
     selection.refresh_combo(s, p.id)
     s.commit()
@@ -424,8 +424,7 @@ def refresh(pid: int, request: Request, s: Session = Depends(get_db), user: User
 
 @router.post("/combos/{pid}/delete")
 async def delete_combo(pid: int, request: Request, s: Session = Depends(get_db),
-                       user: User = Depends(developer)):
-    """Developers create combined previews, so they may delete them too (repo projects: admin)."""
+                       user: User = Depends(current_user)):
     from .projects import delete_project
     get_combo(s, pid)
     return await delete_project(pid, request, s, user)

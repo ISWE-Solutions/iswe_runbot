@@ -4,7 +4,7 @@ import pytest
 from previewer import deps as builddeps
 from previewer.models import COMBO_BRANCH, Build, Job, Project
 from previewer.web import accounts, selection
-from test_web_app import as_role, make_project  # noqa: F401  (fixture)
+from test_web_app import make_project, user_client  # noqa: F401  (fixture)
 
 
 @pytest.fixture
@@ -26,14 +26,14 @@ def try_form(**kw):
     return form
 
 
-def test_try_page_lists_versions_and_apps(s, as_role, ee):
-    page = as_role("developer").get("/try").text
+def test_try_page_lists_versions_and_apps(s, user_client, ee):
+    page = user_client.get("/try").text
     assert "18.0" in page and "19.0" in page and "Helpdesk" in page and 'class="flex items-center gap-2 rounded-md border' in page
     assert "enterprise_addons" in page  # availability passed to the page
 
 
-def test_create_plain_preview(s, as_role, ee):
-    r = as_role("developer").post("/try", data=try_form())
+def test_create_plain_preview(s, user_client, ee):
+    r = user_client.post("/try", data=try_form())
     assert r.status_code == 303
     p = s.query(Project).filter_by(kind="plain").one()
     assert r.headers["location"] == f"/combos/{p.id}"
@@ -47,15 +47,15 @@ def test_create_plain_preview(s, as_role, ee):
     assert s.query(Build).count() == 0
 
 
-def test_second_preview_gets_free_slug(s, as_role, ee):
-    dev = as_role("developer")
+def test_second_preview_gets_free_slug(s, user_client, ee):
+    dev = user_client
     dev.post("/try", data=try_form())
     dev.post("/try", data=try_form())
     assert sorted(p.slug for p in s.query(Project).all()) == ["odoo-19-ee-demo", "odoo-19-ee-demo-2"]
 
 
-def test_enterprise_apps_need_enterprise(s, as_role, ee):
-    dev = as_role("developer")
+def test_enterprise_apps_need_enterprise(s, user_client, ee):
+    dev = user_client
     r = dev.post("/try", data=try_form(edition="community"))
     assert r.status_code == 400 and "Helpdesk is an Enterprise app" in r.text
     r = dev.post("/try", data=try_form(edition="community", apps=["crm"],
@@ -65,16 +65,16 @@ def test_enterprise_apps_need_enterprise(s, as_role, ee):
     assert (p.name, p.edition, p.install_demo_data, p.modules_to_install) == ("Odoo 19 CE", "community", False, "crm,l10n_zm")
 
 
-def test_enterprise_unavailable_for_version(s, as_role, ee, monkeypatch):
+def test_enterprise_unavailable_for_version(s, user_client, ee, monkeypatch):
     from previewer.cli import seed_versions  # 20.0 is seeded enabled
     seed_versions()
-    r = as_role("developer").post("/try", data=try_form(default_odoo_version="20.0"))
+    r = user_client.post("/try", data=try_form(default_odoo_version="20.0"))
     assert r.status_code == 400 and "Enterprise is not available for Odoo 20.0" in r.text
     assert s.query(Project).count() == 0
 
 
-def test_plain_detail_tabs_and_settings_rebuild(s, as_role, ee):
-    dev = as_role("developer")
+def test_plain_detail_tabs_and_settings_rebuild(s, user_client, ee):
+    dev = user_client
     dev.post("/try", data=try_form(apps=["crm"]))
     p = s.query(Project).one()
     b = p.branches[0]
@@ -99,9 +99,9 @@ def test_plain_detail_tabs_and_settings_rebuild(s, as_role, ee):
     assert dev.post(f"/combos/{p.id}/settings", data=bad).status_code == 400
 
 
-def test_board_and_lists_show_plain(s, as_role, ee):
+def test_board_and_lists_show_plain(s, user_client, ee):
     make_project(s)
-    dev = as_role("developer")
+    dev = user_client
     dev.post("/try", data=try_form(apps=[]))
     board = dev.get("/?project=combined").text
     assert "Combined &amp; plain" in board and ">plain<" in board and "Odoo 19.0 · Enterprise · demo · base only" in board
@@ -112,20 +112,13 @@ def test_board_and_lists_show_plain(s, as_role, ee):
     assert "Odoo 19 EE + demo" not in combo_form
 
 
-def test_tester_cannot_create(s, as_role, ee):
-    c = as_role("tester")
-    assert c.get("/try").status_code == 403
-    assert c.post("/try", data=try_form()).status_code == 403
-    assert s.query(Project).count() == 0
-
-
-def test_check_runs_on_plain(s, as_role, monkeypatch):
+def test_check_runs_on_plain(s, user_client, monkeypatch):
     """A plain preview goes through the same pre-build check (Enterprise source etc.)."""
     seen = []
     monkeypatch.setattr(accounts, "enterprise_status", lambda s, v, fresh=False: {
         "repo_url": "", "branch": v, "account": "", "ok": True, "message": ""})
     monkeypatch.setattr(builddeps, "check", lambda b, v=None: seen.append(b.project.kind) or [])
-    dev = as_role("developer")
+    dev = user_client
     dev.post("/try", data=try_form())
     p = s.query(Project).one()
     b = p.branches[0]

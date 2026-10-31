@@ -9,20 +9,16 @@
     <input name="q" value="{{ q }}" placeholder="Search name or repo" aria-label="Search" class="w-56 rounded-md border border-gray-300 px-3 py-1.5 text-sm">
     <button class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Search</button>
   </form>
-  {% if can(user, 'developer') %}
   <a href="/try" class="rounded-md border border-emerald-200 bg-white px-4 py-1.5 text-sm text-emerald-700 hover:bg-emerald-50">Try Odoo</a>
   <a href="/combos/new" class="rounded-md border border-indigo-200 bg-white px-4 py-1.5 text-sm text-indigo-700 hover:bg-indigo-50">New combined preview</a>
-  {% endif %}
-  {% if can(user, 'admin') %}
   <a href="/projects/new" class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Add project</a>
-  {% endif %}
 </div>
 {{ tabs([('projects', 'Projects', totals.projects), ('combined', 'Combined previews', totals.combined),
          ('plain', 'Plain Odoo', totals.plain)], tab, '/projects' ~ ('?q=' ~ q|urlencode if q else ''), 'Project kinds') }}
 {% if tab == 'projects' %}
 {% if not page.items %}
 <div class="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-gray-600">
-  {% if q %}No projects match “{{ q }}”.{% else %}No projects yet.{% if can(user, 'admin') %} <a class="text-indigo-600 hover:underline" href="/projects/new">Add the first one</a>.{% endif %}{% endif %}
+  {% if q %}No projects match “{{ q }}”.{% else %}No projects yet. <a class="text-indigo-600 hover:underline" href="/projects/new">Add the first one</a>.{% endif %}
 </div>
 {% else %}
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -52,7 +48,7 @@
 </div>
 {% if not page.items %}
 <div class="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-600">
-  {% if q %}No combined previews match “{{ q }}”.{% else %}None yet.{% if can(user, 'developer') %} <a class="text-indigo-600 hover:underline" href="/combos/new">Create one</a> to check that branches of different repositories work together.{% endif %}{% endif %}
+  {% if q %}No combined previews match “{{ q }}”.{% else %}None yet. <a class="text-indigo-600 hover:underline" href="/combos/new">Create one</a> to check that branches of different repositories work together.{% endif %}
 </div>
 {% else %}
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -75,11 +71,11 @@
 {% else %}
 <div class="mb-3 flex flex-wrap items-baseline gap-2">
   <p class="text-sm text-gray-500">A clean Odoo version, with or without demo data, no custom code.</p>
-  {% if can(user, 'developer') %}<a href="/try" class="ml-auto rounded-md border border-emerald-200 bg-white px-3 py-1 text-sm text-emerald-700 hover:bg-emerald-50">Try Odoo</a>{% endif %}
+  <a href="/try" class="ml-auto rounded-md border border-emerald-200 bg-white px-3 py-1 text-sm text-emerald-700 hover:bg-emerald-50">Try Odoo</a>
 </div>
 {% if not page.items %}
 <div class="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-600">
-  {% if q %}No plain previews match “{{ q }}”.{% else %}None yet.{% if can(user, 'developer') %} <a class="text-indigo-600 hover:underline" href="/try">Try a version</a> without any custom code.{% endif %}{% endif %}
+  {% if q %}No plain previews match “{{ q }}”.{% else %}None yet. <a class="text-indigo-600 hover:underline" href="/try">Try a version</a> without any custom code.{% endif %}
 </div>
 {% else %}
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

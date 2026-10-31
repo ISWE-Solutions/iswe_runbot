@@ -11,7 +11,7 @@ from previewer.models import COMBO_BRANCH, Branch, Build, Job, Project, ProjectD
 from previewer.security import decrypt
 from previewer.web.routes import forward_auth
 
-from test_web_app import PASSWORD, as_role, client, csrf_of, login, make_branch, make_project, make_user  # noqa: F401
+from test_web_app import PASSWORD, client, csrf_of, login, make_branch, make_project, make_user, user_client  # noqa: F401
 
 REPO = "https://github.com/acme/payroll_extension.git"  # make_project's repo (without .git)
 
@@ -108,13 +108,13 @@ def test_preview_pass_needs_login_and_a_preview_url(s):
     r = c.get("/auth/preview-pass", params={"next": "http://payroll-v18.preview.localhost/x"})
     assert r.status_code == 303 and r.headers["location"].startswith("/login?next=%2Fauth%2Fpreview-pass")
     assert c.get("/auth/preview-pass", params={"next": "https://evil.example/x"}).headers["location"] == "/"
-    u = make_user(s, "tester")
+    u = make_user(s)
     login(c, u.email)
     assert c.get("/auth/preview-pass", params={"next": "http://preview.localhost.evil.com/"}).headers["location"] == "/"
 
 
 def test_dashboard_session_cookie_is_host_only(s):
-    u = make_user(s, "tester")
+    u = make_user(s)
     c = client()
     token = csrf_of(c)
     r = c.post("/login", data={"email": u.email, "password": PASSWORD, "csrf_token": token, "next": "/"})
@@ -134,7 +134,7 @@ def test_forward_auth_redirects_anonymous_to_login_with_next(s):
 def test_forward_auth_allows_logged_in_user_and_public_demo(s):
     p = make_project(s)
     make_branch(s, p)
-    u = make_user(s, "tester")
+    u = make_user(s)
     c = client()
     login(c, u.email)
     assert fa(c).status_code == 302  # dashboard session alone is not enough: needs a pass
@@ -150,7 +150,7 @@ def test_forward_auth_unknown_host_and_inactive_user(s):
     assert fa(client(), host="nothing.preview.localhost").status_code == 204
     p = make_project(s)
     make_branch(s, p)
-    u = make_user(s, "developer")
+    u = make_user(s)
     c = client()
     login(c, u.email)
     get_pass(c)
@@ -161,7 +161,7 @@ def test_forward_auth_unknown_host_and_inactive_user(s):
 
 
 def test_login_redirects_back_to_preview_but_not_elsewhere(s):
-    u = make_user(s, "tester")
+    u = make_user(s)
     c = client()
     page = c.get("/login?next=http%3A%2F%2Fpayroll-v18.preview.localhost%2Fweb")
     assert 'value="http://payroll-v18.preview.localhost/web"' in page.text
@@ -210,7 +210,7 @@ def test_stale_preview_wakes_only_for_signed_in_users(s):
     r = visit(client())
     assert r.status_code == 503 and "Sign in" in r.text
     assert not [j for j in s.query(Job).all() if j.type == "wake"]
-    u = make_user(s, "tester")
+    u = make_user(s)
     c = client()
     login(c, u.email)
     r = visit(c)
@@ -237,8 +237,8 @@ def heartbeat(tmp_path, monkeypatch):
     return write
 
 
-def test_system_page_without_and_with_heartbeat_details(s, as_role, heartbeat):
-    c = as_role("admin")
+def test_system_page_without_and_with_heartbeat_details(s, user_client, heartbeat):
+    c = user_client
     r = c.get("/admin/system")
     assert r.status_code == 200 and "Not responding" in r.text
     heartbeat(disk={"free_gb": 3.1, "total_gb": 228, "percent_used": 98.6},
@@ -252,8 +252,8 @@ def test_system_page_without_and_with_heartbeat_details(s, as_role, heartbeat):
     assert "Disk 99% full" in board.text
 
 
-def test_system_settings_save_validate_and_slack_encrypted(s, as_role):
-    c = as_role("admin")
+def test_system_settings_save_validate_and_slack_encrypted(s, user_client):
+    c = user_client
     form = {k: appsettings.get(s, k) for k in appsettings.defaults() if k != "slack_webhook_url_enc"}
     form.update({"max_running_previews": "x", "preview_memory_limit": "lots", "disk_warning_percent": "150"})
     r = c.post("/admin/system/settings", data=form)
@@ -268,9 +268,9 @@ def test_system_settings_save_validate_and_slack_encrypted(s, as_role):
     assert "hooks.slack.com/services/T/B/x" not in c.get("/admin/system").text
 
 
-def test_slack_test_message(s, as_role, monkeypatch):
+def test_slack_test_message(s, user_client, monkeypatch):
     import httpx
-    c = as_role("admin")
+    c = user_client
     assert "No Slack webhook" in c.post("/admin/system/slack-test").text
     from previewer.security import encrypt
     appsettings.put(s, "slack_webhook_url_enc", encrypt("https://hooks.slack.com/services/T/B/x"))
@@ -281,19 +281,11 @@ def test_slack_test_message(s, as_role, monkeypatch):
     assert "Sent" in c.post("/admin/system/slack-test").text and sent["url"].endswith("/T/B/x")
 
 
-def test_system_permissions(s, as_role):
-    assert as_role("tester").get("/admin/system").status_code == 403
-    dev = as_role("developer")
-    page = dev.get("/admin/system?tab=settings")
-    assert page.status_code == 200 and "Only admins can change these" in page.text
-    assert dev.post("/admin/system/settings", data={}).status_code == 403
-
-
 # ---------- project access & webhook panel ----------
 
-def test_access_switches_and_webhook_secret(s, as_role):
+def test_access_switches_and_webhook_secret(s, user_client):
     p = make_project(s, webhook_secret="old-secret")
-    c = as_role("admin")
+    c = user_client
     page = c.get(f"/projects/{p.id}?tab=settings").text
     assert "/api/webhooks/github" in page and "old-secret" not in page
     assert "old-secret" in c.get(f"/projects/{p.id}/webhook-secret").text
@@ -303,16 +295,13 @@ def test_access_switches_and_webhook_secret(s, as_role):
     c.post(f"/projects/{p.id}/webhook-secret")
     s.expire_all()
     assert p.webhook_secret and p.webhook_secret != "old-secret"
-    dev = as_role("developer")
-    assert dev.get(f"/projects/{p.id}/webhook-secret").status_code == 403
-    assert dev.post(f"/projects/{p.id}/access", data={}).status_code == 403
 
 
-def test_board_shows_public_and_stale_markers(s, as_role):
+def test_board_shows_public_and_stale_markers(s, user_client):
     from previewer.models import utcnow
     p = make_project(s, preview_auth_required=False)
     b = make_branch(s, p)
     b.stale_since = utcnow()
     s.commit()
-    page = as_role("tester").get("/?project=all").text
+    page = user_client.get("/?project=all").text
     assert "bi-globe2" in page and "⏸ stale" in page

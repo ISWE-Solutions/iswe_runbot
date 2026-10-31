@@ -1,7 +1,7 @@
 # Odoo Branch Previewer
 
 A self-hosted, Runbot-style service: every branch of a registered GitHub repo runs as its own
-Odoo instance with its own web address, so developers and testers can open any branch in a
+Odoo instance with its own web address, so anyone on the team can open any branch in a
 browser and log in.
 
 - Dashboard: `https://preview.example.com/`
@@ -50,7 +50,7 @@ Previews are served on `*.preview.localhost` over plain HTTP. Browsers and curl 
 cp .env.example .env          # then fill in SECRET_KEY (32+ characters), ENCRYPTION_KEY, POSTGRES_PASSWORD,
                               # DATA_DIR=<absolute path>/data, DOMAIN=preview.localhost
 docker compose up -d --build  # also loads docker-compose.override.yml (live code reload)
-docker compose exec app python -m previewer.cli create-user --email you@example.com --role admin
+docker compose exec app python -m previewer.cli create-user --email you@example.com
 ```
 
 Open <http://preview.localhost> and sign in.
@@ -89,13 +89,10 @@ Extra repos are fetched with the project's token.
 
 Each preview's Odoo login is `admin` / `admin` (fresh database, sample data only).
 
-## Roles
+## Users
 
-| Role | Can |
-| --- | --- |
-| Tester | View projects, open previews, wake, view logs |
-| Developer | Tester rights, plus rebuild, stop, change branch version and settings |
-| Admin | Everything: projects, Odoo versions, users, system settings |
+There are no roles: every signed-in, active user can do everything. **Users** adds people,
+resets passwords and deactivates accounts (you cannot deactivate yourself).
 
 ## Production install
 
@@ -112,7 +109,7 @@ One Ubuntu 24.04 server (8 cores, 32 GB RAM, 300 GB SSD) with Docker.
    - `DATA_DIR=/srv/previewer`
    - The secrets and `ADMIN_EMAIL`.
 4. **Install:** run `scripts/install.sh`. It creates the folders, builds and starts the stack,
-   runs the migrations, and asks for the first admin's password.
+   runs the migrations, and asks for the first user's password.
 
 To start the stack by hand with HTTPS:
 
@@ -125,6 +122,37 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```bash
 docker compose exec -T postgres pg_dump -U previewer previewer | gzip > previewer-$(date +%F).sql.gz
 ```
+
+**HTTPS terminated by a proxy in front:** keep `TLS_ENABLED=false` (Traefik serves plain HTTP)
+and set `PUBLIC_HTTPS=true`. Previewer then builds `https://` links and OAuth redirect URIs,
+and marks its cookies Secure.
+
+## Sign in with Microsoft / GitHub
+
+The Previewer login page shows "Sign in with Microsoft" and "Sign in with GitHub" above the
+email and password form. A provider that is not set up shows a greyed-out button. People who
+sign in this way for the first time get an account with no password (disable it on the Users
+page to lock them out). Restart the app after changing these settings.
+
+**Microsoft (Entra ID):** anyone in your tenant can sign in.
+
+1. Entra admin center > App registrations > New registration. Supported account types:
+   *Accounts in this organizational directory only* (single tenant). Redirect URI: platform
+   *Web*, `https://<DOMAIN>/auth/microsoft/callback`.
+2. Certificates & secrets > New client secret. Copy its *Value*.
+3. In `.env`: `MICROSOFT_TENANT_ID` (Directory (tenant) ID, the GUID), `MICROSOFT_CLIENT_ID`
+   (Application (client) ID) and `MICROSOFT_CLIENT_SECRET`. The default delegated permissions
+   (`openid`, `email`, `profile`) are enough.
+
+**GitHub (OAuth App):** only active members of `GITHUB_SIGNIN_ORG` (default `ISWE-Solutions`)
+can sign in, using their primary verified email address.
+
+1. ISWE-Solutions organisation > Settings > Developer settings > OAuth Apps > New OAuth App.
+   Homepage URL `https://<DOMAIN>`, authorization callback URL
+   `https://<DOMAIN>/auth/github/callback`.
+2. Generate a new client secret.
+3. In `.env`: `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. These are unrelated to
+   `GITHUB_USERNAME` / `GITHUB_TOKEN`, which pull code.
 
 ## Operations
 
@@ -158,7 +186,7 @@ E2E_CHROME=<path to chromium> npx playwright test      # E2E_WRITE=1 also create
 
 ## Automation (worker scheduler)
 
-Shown with their last result on **System** (admin); every value below is editable there.
+Shown with their last result on **System**; every value below is editable there.
 
 | Task | When | What |
 |---|---|---|

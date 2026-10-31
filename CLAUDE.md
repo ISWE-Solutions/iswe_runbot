@@ -38,7 +38,7 @@ cd e2e && E2E_CHROME=<chromium> npx playwright test   # browser e2e vs the live 
 docker compose exec -e TEST_DATABASE=previewer_test_x app pytest   # parallel test runs
 docker compose restart worker                # worker has no auto-reload
 docker compose run --rm app alembic revision --autogenerate -m "..."
-docker compose exec app python -m previewer.cli create-user --email you@x --role admin
+docker compose exec app python -m previewer.cli create-user --email you@x
 ```
 
 Dashboard: http://preview.localhost (browsers and curl resolve `*.localhost` to 127.0.0.1).
@@ -118,6 +118,12 @@ Dashboard: http://preview.localhost (browsers and curl resolve `*.localhost` to 
   (host memory, `memory_overcommit`, Postgres connections). Call `automation.make_room` before
   starting any preview container.
 - Webhooks: verify the signature on the raw body before parsing or looking anything up.
+- Users have no roles: every signed-in, active user can do everything. Routes depend on
+  `deps.current_user`; the only users-page rule is that you cannot deactivate yourself.
+- Sign in with Microsoft / GitHub: `web/sso.py` (httpx only, state/nonce in the session, no
+  logging of secrets or tokens) + `/auth/{microsoft,github}[/callback]` in `routes/auth.py`; users
+  matched by email (case-insensitive), created with `password_hash=""` (never matches);
+  `Settings.https` (`TLS_ENABLED or PUBLIC_HTTPS`) drives URLs and Secure cookies, Traefik only TLS_ENABLED.
 - Build status values: queued, building, running, sleeping, failed, stopped, removed.
 - Python 3.12, SQLAlchemy 2.0 style (`select()`), type hints, small modules, no comments
   that restate the code.

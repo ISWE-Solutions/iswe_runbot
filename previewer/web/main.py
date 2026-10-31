@@ -13,7 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from ..config import get_settings
 from ..db import SessionLocal
 from ..models import Branch
-from .deps import CSRFError, Forbidden, LoginRequired, csrf_protect, render
+from .deps import CSRFError, LoginRequired, csrf_protect, render
 
 
 class OdooVersionConvertor(Convertor):
@@ -103,7 +103,7 @@ app.add_middleware(
     secret_key=settings.secret_key,
     session_cookie="previewer_session",
     same_site="lax",
-    https_only=settings.tls_enabled,
+    https_only=settings.https,  # Secure behind TLS_ENABLED or a PUBLIC_HTTPS proxy
     domain=None,  # host-only on purpose: previews get a separate pass (routes/forward_auth.py)
 )
 
@@ -114,12 +114,6 @@ async def _login_required(request: Request, exc):
         return Response(status_code=401, headers={"HX-Redirect": "/login"})
     nxt = request.url.path + (f"?{request.url.query}" if request.url.query else "")
     return RedirectResponse(f"/login?next={nxt}", status_code=303)
-
-
-@app.exception_handler(Forbidden)
-async def _forbidden(request: Request, exc):
-    return render(request, "error.html", {"title": "Not allowed",
-                  "message": "Your role does not allow this action."}, status_code=403)
 
 
 @app.exception_handler(CSRFError)
