@@ -324,7 +324,7 @@ def slack_test(request: Request, s: Session = Depends(get_db), user: User = Depe
     if not enc:
         return '<p class="text-sm text-amber-700">No Slack webhook URL is saved yet.</p>'
     try:
-        r = httpx.post(decrypt(enc), json={"text": f"Test message from the Odoo Previewer at "
+        r = httpx.post(decrypt(enc), json={"text": f"Test message from the Preview Portal at "
                                                    f"{get_settings().dashboard_url} (sent by {user.email})"},
                        timeout=10)
     except httpx.HTTPError as e:

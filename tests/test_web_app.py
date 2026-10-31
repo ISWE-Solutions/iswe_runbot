@@ -82,7 +82,7 @@ def test_login_logout(s):
     assert c.get("/").headers["location"].startswith("/login")
     token = csrf_of(c)
     bad = c.post("/login", data={"email": "tester@example.com", "password": "nope", "csrf_token": token})
-    assert bad.status_code == 400 and "Wrong email or password" in bad.text
+    assert bad.status_code == 400 and "Wrong email, username or password" in bad.text
     token = login(c, "tester@example.com")
     home = c.get("/")
     assert home.status_code == 200 and "Projects" in home.text

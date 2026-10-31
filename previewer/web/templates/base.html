@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Previews{% endblock %} · Odoo Previewer — Iswe Solutions Ltd</title>
+  <title>{% block title %}Previews{% endblock %} · Preview Portal — Iswe Solutions Ltd</title>
   <link rel="icon" type="image/jpeg" href="/static/img/iswe-logo.jpeg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,7 +23,7 @@
   <nav id="sidebar" aria-label="Main">
     <a class="brand" href="/">
       <img src="/static/img/iswe-logo.jpeg" alt="Iswe Solutions Ltd">
-      <div class="product">Odoo Previewer</div>
+      <div class="product">Preview Portal</div>
     </a>
     <div class="brand-rule"></div>
     <div class="nav-section">Workspace</div>
@@ -71,11 +71,13 @@
 </div>
 {% else %}
 <main class="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
+  {% block guest_header %}
   <div class="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white text-center shadow-sm">
     <div class="px-6 pb-4 pt-6"><img src="/static/img/iswe-logo.jpeg" alt="Iswe Solutions Ltd" class="mx-auto w-40">
-      <div class="mt-2 text-xs font-bold uppercase tracking-[.13em] text-iswe-navy">Odoo Previewer</div></div>
+      <div class="mt-2 text-xs font-bold uppercase tracking-[.13em] text-iswe-navy">Preview Portal</div></div>
     <div class="brand-rule"></div>
   </div>
+  {% endblock %}
   {% for f in pop_flashes(request) %}
   <div class="alert-strip {{ f.kind }} mb-4 rounded-lg border px-4 py-3 text-sm
     {% if f.kind == 'error' %}border-red-200 bg-red-50 text-red-800{% else %}border-sky-200 bg-sky-50 text-sky-900{% endif %}">{{ f.message }}</div>

@@ -44,7 +44,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...),
     user = s.scalars(select(User).where(User.email == email.strip().lower())).first()
     if not user or not user.active or not verify_password(password, user.password_hash):
         return render(request, "login.html", {"next": _safe_next(next), "email": email,
-                      "error": "Wrong email or password."}, status_code=400)
+                      "error": "Wrong email, username or password."}, status_code=400)
     csrf = request.session.get("csrf")
     request.session.clear()
     request.session.update({"user_id": user.id, "csrf": csrf})

@@ -10,7 +10,7 @@ test.describe("signed out", () => {
     await page.fill("input[name=email]", EMAIL);
     await page.fill("input[name=password]", "not-the-password");
     await page.click("main form button");
-    await expect(page.getByText("Wrong email or password.")).toBeVisible();
+    await expect(page.getByText("Wrong email, username or password.")).toBeVisible();
     await expect(page).toHaveURL(/\/login/);
   });
 
