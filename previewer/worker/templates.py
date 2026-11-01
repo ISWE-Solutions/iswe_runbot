@@ -164,7 +164,7 @@ def _make(key: str, spec, blog: BuildLog) -> DbTemplate | None:
         pg.create_template_database(db, maker)
         shutil.rmtree(tdir, ignore_errors=True)
         (tdir / "data").mkdir(parents=True)
-        _chown(tdir / "data")
+        _chown(tdir / "data", spec.base_image)
         (tdir / "odoo.conf").write_text(docker_ops.render_conf(
             db_name=db, admin_passwd=random_secret(), db_user=maker, db_password=password,
             addons=docker_ops.addons_path(0, bool(spec.enterprise_dir), with_src=False)))
@@ -213,16 +213,16 @@ def copy_into(t: DbTemplate, db_name: str, filestore: Path, owner: str) -> None:
         dest = filestore / "filestore" / db_name
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(src, dest, dirs_exist_ok=True)
-        _chown(filestore / "filestore")
+        _chown(filestore / "filestore", t.image)
 
 
-def _chown(path: Path) -> None:
-    uid = docker_ops.ODOO_UID
+def _chown(path: Path, image: str) -> None:
+    uid, gid = docker_ops.odoo_owner(image)
     try:
-        os.chown(path, uid, uid)
+        os.chown(path, uid, gid)
         for root, dirs, files in os.walk(path):
             for n in dirs + files:
-                os.chown(os.path.join(root, n), uid, uid)
+                os.chown(os.path.join(root, n), uid, gid)
     except OSError:
         pass  # Docker Desktop file sharing does not enforce ownership
 

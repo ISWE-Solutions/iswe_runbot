@@ -183,3 +183,40 @@ def test_core_modules_cached_per_image(tmp_path, monkeypatch):
     assert docker_ops.core_modules("odoo:18") == {"base", "hr"}
     assert Containers.runs == 1
     assert (tmp_path / "cache" / ("core-" + "f" * 16 + ".json")).exists()
+
+
+def test_odoo_owner_asked_once_per_image(tmp_path, monkeypatch):
+    """odoo:19+ runs Odoo as 100:101, older images as 101:101: data folders must match."""
+    monkeypatch.setattr(docker_ops, "get_settings",
+                        lambda: type("C", (), {"data_dir": tmp_path})())
+
+    class Img:
+        id = "sha256:" + "a" * 64
+
+    class Containers:
+        runs = 0
+
+        def run(self, image, **kw):
+            Containers.runs += 1
+            assert kw["entrypoint"] == ["sh", "-c", "id -u; id -g"] and kw["network_disabled"]
+            return b"100\n101\n"
+
+    class Client:
+        images = type("I", (), {"get": staticmethod(lambda name: Img())})()
+        containers = Containers()
+
+    monkeypatch.setattr(docker_ops, "client", lambda: Client())
+    assert docker_ops.odoo_owner("odoo:19") == (100, 101)
+    assert docker_ops.odoo_owner("odoo:19") == (100, 101)
+    assert Containers.runs == 1
+
+
+def test_odoo_owner_falls_back_when_docker_cannot_answer(tmp_path, monkeypatch):
+    monkeypatch.setattr(docker_ops, "get_settings",
+                        lambda: type("C", (), {"data_dir": tmp_path})())
+
+    def broken():
+        raise RuntimeError("no docker")
+
+    monkeypatch.setattr(docker_ops, "client", broken)
+    assert docker_ops.odoo_owner("odoo:18") == (docker_ops.ODOO_UID, docker_ops.ODOO_UID)

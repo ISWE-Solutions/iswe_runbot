@@ -364,7 +364,7 @@ def _prepare(spec: BuildSpec, blog: BuildLog):
     fs = filestore_dir(spec.build_id)
     fs.mkdir(parents=True, exist_ok=True)
     try:
-        os.chown(fs, docker_ops.ODOO_UID, docker_ops.ODOO_UID)
+        os.chown(fs, *docker_ops.odoo_owner(spec.base_image))
     except OSError:
         pass  # e.g. Docker Desktop file sharing, where ownership is not enforced
     return docker_ops.mounts(bdir, fs, len(spec.deps), enterprise_dir, with_src=not spec.combo)

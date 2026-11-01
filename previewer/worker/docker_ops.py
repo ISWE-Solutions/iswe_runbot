@@ -19,7 +19,7 @@ from ..naming import container_name
 from .logs import BuildLog
 
 ODOO_PORT = 8069
-ODOO_UID = 101  # `odoo` user in the official images
+ODOO_UID = 101  # `odoo` user in older official images; odoo_owner() asks the image itself
 # On images this system builds (previewer-odoo:*), so pruning never touches other stacks' images
 IMAGE_LABEL = "previewer.image"
 SRC, EXTRA, ENTERPRISE, CONF, DATA = "/mnt/src", "/mnt/extra", "/mnt/enterprise", "/etc/odoo/odoo.conf", "/var/lib/odoo"
@@ -210,6 +210,34 @@ def core_modules(image: str) -> set[str] | None:
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_text(json.dumps(mods))
     return set(mods)
+
+
+def odoo_owner(image: str) -> tuple[int, int]:
+    """(uid, gid) Odoo runs as in the image, cached per image id under DATA_DIR/cache. Bind-mounted
+    data folders must belong to it: odoo:19 and later run as 100:101, older images as 101:101.
+    Falls back to ODOO_UID when the image cannot be asked."""
+    fallback = (ODOO_UID, ODOO_UID)
+    try:
+        image_id = client().images.get(image).id.split(":")[-1][:16]
+    except Exception:  # noqa: BLE001 — Docker unavailable or image missing
+        return fallback
+    cache = get_settings().data_dir / "cache" / f"owner-{image_id}.json"
+    if cache.exists():
+        try:
+            uid, gid = json.loads(cache.read_text())
+            return int(uid), int(gid)
+        except (ValueError, TypeError):
+            pass
+    try:
+        out = client().containers.run(image, entrypoint=["sh", "-c", "id -u; id -g"],
+                                      remove=True, network_disabled=True, mem_limit="128m")
+        uid, gid = (int(x) for x in out.decode().split()[-2:])
+    except Exception:  # noqa: BLE001
+        log_.exception("could not ask %s which user Odoo runs as", image)
+        return fallback
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    cache.write_text(json.dumps([uid, gid]))
+    return uid, gid
 
 
 def run_init(*, image: str, build_id: int, args: list[str], mounts_: list[Mount], mem_limit: str,
