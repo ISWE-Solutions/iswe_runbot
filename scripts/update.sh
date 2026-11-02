@@ -55,6 +55,7 @@ fi
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 curl -fsSL "${AUTH[@]}" "https://api.github.com/repos/$REPO/tarball/$SHA" | tar -xz -C "$TMP" --strip-components=1
+chmod 755 "$TMP"  # rsync -a copies it onto $ROOT; mktemp makes it 700
 KEEP=(--exclude /.env --exclude /REVISION --exclude '/*.log' --exclude /data/)
 DATA=$(readlink -m "${DATA_DIR:-$ROOT/data}")
 case "$DATA/" in "$ROOT"/*) KEEP+=(--exclude "/${DATA#"$ROOT"/}/") ;; esac  # never delete live data
