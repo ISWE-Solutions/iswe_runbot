@@ -127,6 +127,20 @@ docker compose exec -T postgres pg_dump -U previewer previewer | gzip > previewe
 and set `PUBLIC_HTTPS=true`. Previewer then builds `https://` links and OAuth redirect URIs,
 and marks its cookies Secure.
 
+**Updating:** on the server, run
+
+```bash
+sudo /opt/previewer/scripts/update.sh          # latest commit of the odoo branch
+sudo /opt/previewer/scripts/update.sh <ref>    # another branch, tag or commit; also how you roll back
+```
+
+It downloads the commit from GitHub and replaces the code, keeping `.env`, `DATA_DIR` and the
+logs. It then rebuilds, restarts (the migrations run on start) and waits until the app is
+healthy. The running commit is stored in `REVISION` and each run is logged to `update.log`.
+It does nothing when the server is already up to date. It also stops while a build is running,
+because restarting the worker would fail that build; `--force` overrides both. A private repo
+needs `GITHUB_TOKEN` in `.env`.
+
 ## Sign in with Microsoft / GitHub
 
 The Previewer login page shows "Sign in with Microsoft" and "Sign in with GitHub" above the
