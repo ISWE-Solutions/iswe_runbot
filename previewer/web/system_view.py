@@ -29,6 +29,8 @@ SIGNIN_FIELDS: dict[str, list[tuple[str, str, str, re.Pattern]]] = {
     ],
 }
 SECRET_MAX = 500
+HOST_RE = re.compile(r"^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$")
+ADDRESS_RE = re.compile(r"^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$")
 
 # (key, label, kind, help); kinds: int, percent, float, memory, bool, secret
 GROUPS: list[tuple[str, list[tuple[str, str, str, str]]]] = [
@@ -198,6 +200,53 @@ def save_signin(s: Session, provider: str, form) -> dict[str, str]:
         appsettings.clear(s, f"{secret_key}_enc")
     elif secret:
         appsettings.put(s, f"{secret_key}_enc", encrypt(secret))
+    return {}
+
+
+def mail(s: Session) -> dict:
+    """System > Mail: saved values, status and what is still missing. Never contains the password."""
+    from .. import mailer
+    c = mailer.config(s)
+    return {"host": c.host, "port": c.port, "security": c.security, "username": c.username,
+            "sender": c.sender, "password_saved": bool(c.password), "missing": mailer.missing(c),
+            "security_choices": mailer.SECURITY}
+
+
+def save_mail(s: Session, form) -> dict[str, str]:
+    """Validate and store the System > Mail form; returns {field: error}. A blank password
+    keeps the saved one."""
+    from email.utils import parseaddr
+
+    from .. import mailer
+    from ..security import encrypt
+    host = (form.get("smtp_host") or "").strip()
+    port = (form.get("smtp_port") or "").strip()
+    security = form.get("smtp_security") or "starttls"
+    username = (form.get("smtp_username") or "").strip()
+    password = form.get("smtp_password") or ""
+    sender = (form.get("smtp_from") or "").strip()
+    errors = {}
+    if host and not HOST_RE.match(host):
+        errors["smtp_host"] = "A host name like smtp.office365.com, without https:// or a port"
+    if not port.isdigit() or not 1 <= int(port) <= 65535:
+        errors["smtp_port"] = "A port number, usually 587, 465 or 25"
+    if security not in mailer.SECURITY:
+        errors["smtp_security"] = "Choose one of the options"
+    if len(username) > 254:
+        errors["smtp_username"] = "Too long"
+    if len(password) > SECRET_MAX:
+        errors["smtp_password"] = "Too long"
+    if sender and not ADDRESS_RE.match(parseaddr(sender)[1] or ""):
+        errors["smtp_from"] = "An email address, optionally with a name: Previewer <previewer@iswe.co.zm>"
+    if errors:
+        return errors
+    for key, value in (("smtp_host", host), ("smtp_port", port), ("smtp_security", security),
+                       ("smtp_username", username), ("smtp_from", sender)):
+        appsettings.put(s, key, value)
+    if form.get("smtp_password_clear") in ("on", "1", "true"):
+        appsettings.put(s, "smtp_password_enc", "")
+    elif password:
+        appsettings.put(s, "smtp_password_enc", encrypt(password))
     return {}
 
 

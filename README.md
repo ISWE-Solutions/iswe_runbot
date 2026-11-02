@@ -176,6 +176,13 @@ field left blank uses its `.env` value, marked "from server .env" on the page.
 3. On System > Sign-in (or in `.env`: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`): the Client ID
    and the secret. These are unrelated to `GITHUB_USERNAME` / `GITHUB_TOKEN`, which pull code.
 
+## Email
+
+Open System → Mail and enter the SMTP server (for Microsoft 365: `smtp.office365.com`, port 587,
+STARTTLS), the mailbox username and password, and the From address. The password is stored
+encrypted. Use **Send test email** to check that the server can reach the mail server. Alerts
+are sent through these settings.
+
 ## Operations
 
 | Task | Command |

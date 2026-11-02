@@ -52,7 +52,7 @@
 <div class="mt-6">
 {{ tabs([('previews', 'Previews', previews|length), ('queue', 'Build queue', queue|length),
          ('tasks', 'Scheduled tasks', failed_tasks or none, 'alert'), ('templates', 'Base databases', templates|length),
-         ('settings', 'Settings'), ('sign-in', 'Sign-in'), ('jobs', 'Recent jobs')], tab, '/admin/system', 'System sections') }}
+         ('settings', 'Settings'), ('sign-in', 'Sign-in'), ('mail', 'Mail'), ('jobs', 'Recent jobs')], tab, '/admin/system', 'System sections') }}
 </div>
 
 {% if tab == 'previews' %}
@@ -255,6 +255,83 @@
     <div class="flex items-center gap-3 border-t border-gray-200 pt-4">
       <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save GitHub</button>
     </div>
+  </form>
+</div>
+
+{% elif tab == 'mail' %}
+{% set input = "mt-1 block w-full rounded-md border px-3 py-1.5 text-sm" %}
+{% macro mail_field(key, id, label, value, help='', type='text', mono=true) -%}
+<div class="text-sm">
+  <label for="{{ id }}" class="font-medium">{{ label }}</label>
+  <input id="{{ id }}" type="{{ type }}" name="{{ key }}" value="{{ mail_form.get(key, value) }}" autocomplete="off" spellcheck="false"
+         class="{{ input }} {{ 'font-mono' if mono }} {{ 'border-red-400' if mail_errors.get(key) else 'border-gray-300' }}">
+  {% if mail_errors.get(key) %}<p class="mt-1 text-xs text-red-700" data-field-error>{{ mail_errors[key] }}</p>{% endif %}
+  {% if help %}<p class="mt-1 text-xs text-gray-500">{{ help }}</p>{% endif %}
+</div>
+{%- endmacro %}
+<p class="mb-4 text-sm text-gray-600">The mail server the Previewer sends alerts through. A save applies at once, no restart.</p>
+<div class="grid gap-6 lg:grid-cols-2">
+  <form method="post" action="/admin/system/mail" class="{{ card }} min-w-0 space-y-4" data-mail="settings">
+    {{ csrf() }}
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="text-base font-semibold">Mail server (SMTP)</h2>
+      {% if not mail.missing %}<span class="inline-flex rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800" data-status="mail">Set up</span>
+      {% else %}<span class="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700" data-status="mail">Not set up</span>{% endif %}
+    </div>
+    {% if mail.missing %}<p class="text-sm text-amber-700">Still needed: {{ mail.missing|join(', ') }}.</p>{% endif %}
+    {{ mail_field('smtp_host', 'smtp-host', 'SMTP server', mail.host, 'For Microsoft 365: smtp.office365.com. For Gmail / Google Workspace: smtp.gmail.com.') }}
+    <div class="grid gap-4 sm:grid-cols-2">
+      {{ mail_field('smtp_port', 'smtp-port', 'Port', mail.port, '587 with STARTTLS, 465 with SSL/TLS.') }}
+      <div class="text-sm">
+        <label for="smtp-security" class="font-medium">Security</label>
+        {% set chosen = mail_form.get('smtp_security', mail.security) %}
+        <select id="smtp-security" name="smtp_security" class="{{ input }} border-gray-300">
+          {% for value, label in mail.security_choices.items() %}<option value="{{ value }}" {% if value == chosen %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        {% if mail_errors.get('smtp_security') %}<p class="mt-1 text-xs text-red-700" data-field-error>{{ mail_errors['smtp_security'] }}</p>{% endif %}
+      </div>
+    </div>
+    {{ mail_field('smtp_username', 'smtp-username', 'Username', mail.username, 'Usually the full mailbox address. Blank for a relay that needs no login.') }}
+    <div class="text-sm">
+      <label for="smtp-password" class="font-medium">Password</label>
+      {% if mail.password_saved %}<span class="ml-1 text-xs text-green-700" data-secret="saved">· Saved (encrypted)</span>
+      {% else %}<span class="ml-1 text-xs text-gray-500">· not set</span>{% endif %}
+      <input id="smtp-password" type="password" name="smtp_password" autocomplete="new-password" spellcheck="false"
+             placeholder="{{ 'Blank keeps the saved password' if mail.password_saved else 'The mailbox or app password' }}"
+             class="{{ input }} font-mono {{ 'border-red-400' if mail_errors.get('smtp_password') else 'border-gray-300' }}">
+      {% if mail_errors.get('smtp_password') %}<p class="mt-1 text-xs text-red-700" data-field-error>{{ mail_errors['smtp_password'] }}</p>{% endif %}
+      <p class="mt-1 text-xs text-gray-500">Stored encrypted and never shown again. With multi-factor sign-in, use an app password.</p>
+      {% if mail.password_saved %}<label class="mt-2 flex items-center gap-1 text-xs"><input type="checkbox" name="smtp_password_clear"> Remove the saved password</label>{% endif %}
+    </div>
+    {{ mail_field('smtp_from', 'smtp-from', 'From address', mail.sender, 'Who alerts come from, e.g. Previewer &lt;previewer@iswe.co.zm&gt;. The account above must be allowed to send as it.', mono=false) }}
+    <details class="text-sm">
+      <summary class="cursor-pointer font-medium">Microsoft 365 mailbox</summary>
+      <ol class="mt-2 space-y-1 pl-5 text-gray-600" style="list-style-type: decimal">
+        <li>Server smtp.office365.com, port 587, STARTTLS.</li>
+        <li>Username and From: the mailbox address, e.g. previewer@iswe.co.zm.</li>
+        <li>Microsoft 365 admin center → Users → the mailbox → Mail → Manage email apps → tick <em>Authenticated SMTP</em>.</li>
+        <li>If sign-in is refused with security defaults on, ask the admin for an app password or an SMTP relay.</li>
+      </ol>
+    </details>
+    <div class="flex items-center gap-3 border-t border-gray-200 pt-4">
+      <button class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save mail settings</button>
+    </div>
+  </form>
+
+  <form class="{{ card }} min-w-0 space-y-4 self-start" data-mail="test"
+        hx-post="/admin/system/mail-test" hx-target="#mail-test-result" hx-swap="innerHTML">
+    {{ csrf() }}
+    <h2 class="text-base font-semibold">Send a test email</h2>
+    <p class="text-sm text-gray-600">Sends one message with the saved settings, so save first.</p>
+    <div class="text-sm">
+      <label for="mail-test-to" class="font-medium">Send to</label>
+      <input id="mail-test-to" name="to" type="email" required value="{{ user.email if user and '@' in user.email else '' }}"
+             placeholder="you@iswesolutions.com" class="{{ input }} border-gray-300">
+    </div>
+    <div class="flex items-center gap-3">
+      <button class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50" {% if mail.missing %}disabled title="Save the mail settings first"{% endif %}>Send test email</button>
+    </div>
+    <div id="mail-test-result" aria-live="polite"></div>
   </form>
 </div>
 

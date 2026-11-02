@@ -39,6 +39,13 @@ def defaults() -> dict[str, str]:
         "github_client_id": c.github_client_id,
         "github_client_secret_enc": "",
         "github_signin_org": c.github_signin_org,
+        # Outgoing email (System > Mail, mailer.py); the password is Fernet-encrypted
+        "smtp_host": "",
+        "smtp_port": "587",
+        "smtp_security": "starttls",
+        "smtp_username": "",
+        "smtp_password_enc": "",
+        "smtp_from": "",
     }
 
 

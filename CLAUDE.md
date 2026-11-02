@@ -22,6 +22,7 @@ previewer/
   diagnose.py      why a build failed (pure): diagnose(log, mounts, signals) -> [Finding], headline()
   testresults.py   module test results from an Odoo log (pure): parse(log, mounts) -> TestReport
   gitmirror.py     bare mirrors under DATA_DIR/repos, export commits    (worker only)
+  mailer.py        outgoing email over SMTP (System > Mail): config(), ready(), send() -> MailError
   cli.py           python -m previewer.cli seed | create-user
   web/             FastAPI app (main.py), routes, Jinja + HTMX templates, Tailwind
   worker/          python -m previewer.worker: job loop, build pipeline, Docker ops
@@ -129,6 +130,9 @@ Dashboard: http://preview.localhost (browsers and curl resolve `*.localhost` to 
   `Settings.https` (`TLS_ENABLED or PUBLIC_HTTPS`) drives URLs and Secure cookies, Traefik only TLS_ENABLED.
   Provider settings: always `sso.effective()` per request (System > Sign-in rows in `settings`, secrets
   `*_client_secret_enc`, blank/no row = .env); forms and validation in `system_view.signin/save_signin`.
+- Email: System > Mail stores `smtp_*` settings (`smtp_password_enc` Fernet-encrypted; validation in
+  `system_view.save_mail`). Alerts call `mailer.send(s, to, subject, body)`; it raises `MailError` with a
+  screen-ready message and never logs or renders the password.
 - Build status values: queued, building, running, sleeping, failed, stopped, removed.
 - Python 3.12, SQLAlchemy 2.0 style (`select()`), type hints, small modules, no comments
   that restate the code.

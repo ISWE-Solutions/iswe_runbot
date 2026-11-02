@@ -232,12 +232,13 @@ def update_user(uid: int, request: Request, active: str = Form(""),
 
 # ---------- system ----------
 
-SYSTEM_TABS = ("previews", "queue", "tasks", "templates", "settings", "sign-in", "jobs")
+SYSTEM_TABS = ("previews", "queue", "tasks", "templates", "settings", "sign-in", "mail", "jobs")
 
 
 def _system_ctx(s: Session, errors: dict | None = None, form_values: dict | None = None, *,
                 tab: str = "previews", page: int = 1, jtype: str = "", jstatus: str = "",
-                signin_errors: dict | None = None, signin_form: dict | None = None) -> dict:
+                signin_errors: dict | None = None, signin_form: dict | None = None,
+                mail_errors: dict | None = None, mail_form: dict | None = None) -> dict:
     from datetime import datetime, timezone
     builds = dict(s.execute(select(Build.status, func.count()).group_by(Build.status)).all())
     queue = s.scalars(select(Job).where(Job.status.in_(("queued", "running"))).order_by(Job.id)).all()
@@ -283,6 +284,8 @@ def _system_ctx(s: Session, errors: dict | None = None, form_values: dict | None
         "disk_warning": system_view.disk_warning(s),
         "signin": system_view.signin(s) if tab == "sign-in" else {},
         "signin_errors": signin_errors or {}, "signin_form": signin_form or {},
+        "mail": system_view.mail(s) if tab == "mail" else {},
+        "mail_errors": mail_errors or {}, "mail_form": mail_form or {},
     }
 
 
@@ -355,3 +358,39 @@ async def save_sign_in(provider: str, request: Request, s: Session = Depends(get
     else:
         flash(request, f"{label} sign-in saved and ready: the login page shows the button now.", "success")
     return RedirectResponse("/admin/system?tab=sign-in", status_code=303)
+
+
+@router.post("/system/mail")
+async def save_mail(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
+    form = await request.form()
+    errors = system_view.save_mail(s, form)
+    if errors:
+        s.rollback()
+        typed = {k: str(form.get(k) or "") for k in ("smtp_host", "smtp_port", "smtp_security",
+                                                      "smtp_username", "smtp_from")}
+        flash(request, "Mail settings not saved: check the highlighted fields.", "error")
+        return render(request, "admin_system.html",
+                      _system_ctx(s, tab="mail", mail_errors=errors, mail_form=typed), status_code=400)
+    s.commit()
+    need = system_view.mail(s)["missing"]
+    if need:
+        flash(request, f"Mail settings saved. Still needed: {', '.join(need)}.", "info")
+    else:
+        flash(request, "Mail settings saved. Send a test email to check them.", "success")
+    return RedirectResponse("/admin/system?tab=mail", status_code=303)
+
+
+@router.post("/system/mail-test", response_class=HTMLResponse)
+def mail_test(request: Request, to: str = Form(""), s: Session = Depends(get_db),
+              user: User = Depends(current_user)):
+    from ... import mailer
+    to = to.strip()
+    if not EMAIL_RE.match(to):
+        return '<p class="text-sm text-red-700" role="alert">Enter the email address to send the test to.</p>'
+    try:
+        mailer.send(s, [to], "Previewer test email",
+                    f"This is a test email from the Previewer at {get_settings().dashboard_url}, "
+                    f"sent by {user.email}.\n\nIf you can read this, alerts by email will work.")
+    except mailer.MailError as e:
+        return f'<p class="text-sm text-red-700" role="alert">{escape(str(e))}</p>'
+    return f'<p class="text-sm text-green-700">✓ Sent to {escape(to)}. Check the inbox (and the spam folder).</p>'
