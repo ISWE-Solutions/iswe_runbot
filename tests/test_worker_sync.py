@@ -219,6 +219,17 @@ def test_combo_sync_builds_once_and_on_part_move(s, heads, fake_github):
     assert [x.status for x in s.query(Build).order_by(Build.id)] == ["removed", "queued"]
 
 
+def test_combo_sync_rebuild_builds_when_nothing_moved(s, heads, fake_github):
+    p, b = _combo(s)
+    heads.update({("payroll_extension", "v18-astro"): "1" * 40, ("bank_extension", "main"): "2" * 40})
+    sync.sync_project(s, p.id)
+    s.commit()
+    assert sync.sync_project(s, p.id)["queued"] == 0
+    assert sync.sync_project(s, p.id, rebuild=True)["queued"] == 1  # Pull latest & rebuild
+    s.commit()
+    assert [x.status for x in s.query(Build).order_by(Build.id)] == ["removed", "queued"]
+
+
 def test_combo_sync_missing_part_branch(s, heads):
     p, b = _combo(s)
     heads[("payroll_extension", "v18-astro")] = "1" * 40

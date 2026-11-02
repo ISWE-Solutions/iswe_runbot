@@ -58,6 +58,17 @@ def test_create_combo_pins_parts_and_refreshes(s, user_client, checks_ok):
     assert s.query(Build).count() == 0  # the worker's sync resolves the heads, then builds
 
 
+def test_combo_pull_latest_marks_the_parts_sync_to_rebuild(s, user_client, checks_ok):
+    make_project(s)
+    p = make_combo(s, user_client)
+    b = s.query(Branch).filter_by(project_id=p.id).one()
+    assert user_client.post(f"/branches/{b.id}/pull-rebuild").status_code == 303
+    s.expire_all()
+    job = s.query(Job).filter_by(type="sync").one()  # the waiting sync is reused
+    assert job.payload == {"project_id": p.id, "rebuild": True}
+    assert s.query(Build).count() == 0  # the worker fetches the parts' heads, then builds
+
+
 def test_create_combo_blocked_does_not_refresh(s, user_client, checks_blocked):
     make_project(s)
     c = user_client

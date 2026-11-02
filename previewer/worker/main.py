@@ -56,7 +56,7 @@ class Worker:
             pipeline.run_build(p["build_id"], self.followers)
         elif job.type == "sync":
             with session_scope() as s:
-                counts = sync_project(s, p["project_id"])
+                counts = sync_project(s, p["project_id"], rebuild=bool(p.get("rebuild")))
             log.info("sync project %s: %s", p["project_id"], counts)
         elif job.type == "stop":
             lifecycle.stop(p["build_id"])

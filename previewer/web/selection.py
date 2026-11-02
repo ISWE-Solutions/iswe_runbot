@@ -10,7 +10,7 @@ from sqlalchemy import select as sa_select
 from sqlalchemy.orm import Session, object_session
 
 from .. import deps as builddeps
-from .. import github, jobs
+from .. import credentials, github, jobs
 from ..models import Branch, Job
 from .deps import flash
 
@@ -112,11 +112,47 @@ def queue_checked(request: Request, s: Session, b: Branch, *, quiet: bool = Fals
     return "queued" if queue(request, s, b) else "skipped"
 
 
-def refresh_combo(s: Session, project_id: int) -> None:
-    """Queue the combo's `sync` (refresh the parts' heads) unless one is already waiting."""
+def refresh_combo(s: Session, project_id: int, *, rebuild: bool = False) -> None:
+    """Queue the combo's `sync` (refresh the parts' heads) unless one is already waiting;
+    `rebuild` makes that sync build it even when no part moved."""
     waiting = s.scalars(sa_select(Job).where(Job.type == "sync", Job.status == "queued")).all()
-    if not any((j.payload or {}).get("project_id") == project_id for j in waiting):
-        jobs.enqueue(s, "sync", {"project_id": project_id})
+    job = next((j for j in waiting if (j.payload or {}).get("project_id") == project_id), None)
+    if job is None:
+        jobs.enqueue(s, "sync", {"project_id": project_id, **({"rebuild": True} if rebuild else {})})
+    elif rebuild:
+        job.payload = {**job.payload, "rebuild": True}
+
+
+def pull_latest(request: Request, s: Session, b: Branch) -> str | None:
+    """Pull latest & rebuild: read the branch head on GitHub with the project's Git credential,
+    record it, then queue a build even when the commit did not change (no webhook needed).
+    Returns the flash message on success; flashes the reason and returns None otherwise."""
+    if b.deleted_at or not b.host:
+        queue(request, s, b)  # flashes the reason
+        return None
+    if b.project.is_combo:
+        refresh_combo(s, b.project_id, rebuild=True)
+        clear_blocked(b.id)
+        return f"Fetching the latest commits of {b.project.name}'s parts; the rebuild starts next."
+    auth = credentials.for_project(b.project)
+    try:
+        head = github.branch_head(b.project.repo_url, auth.token, b.name)
+    except github.GitHubError as e:
+        flash(request, f"{b.name}: could not read the latest commit ({e}, using {auth.label}; "
+              "check it on the Git credentials page).", "error")
+        return None
+    if head is None:
+        flash(request, f"{b.name} no longer exists on GitHub; Sync branches to update the list.", "error")
+        return None
+    moved = head.sha != b.last_commit_sha
+    if moved:
+        b.last_commit_sha, b.last_commit_message = head.sha, head.message
+        b.last_commit_author, b.last_commit_at = head.author, head.committed_at
+        s.flush()
+    if not queue(request, s, b):
+        return None
+    what = "new commit" if moved else "already the latest commit"
+    return f"Rebuilding {b.name} from {head.sha[:7]} ({what}{': ' + head.message if head.message else ''})."
 
 
 def mark_blocked(branch: Branch, results: list[builddeps.CheckResult]) -> None:

@@ -51,13 +51,14 @@ class SyncError(Exception):
     pass
 
 
-def sync_project(s: Session, project_id: int) -> dict:
-    """Returns counts for the job log. Caller commits."""
+def sync_project(s: Session, project_id: int, *, rebuild: bool = False) -> dict:
+    """Returns counts for the job log. Caller commits. `rebuild` (Pull latest & rebuild of a
+    combined preview) builds it even when no part moved."""
     project = s.get(Project, project_id)
     if project is None:
         return {"error": "project not found"}
     if project.is_combo:
-        return sync_combo(s, project)
+        return sync_combo(s, project, rebuild=rebuild)
     for rx in (project.auto_build_regex, project.branch_exclude_regex):
         if rx:
             re.compile(rx)  # raise a readable error for a bad filter before calling GitHub
@@ -162,7 +163,7 @@ def combo_heads(branch: Branch) -> list[tuple[deps.ResolvedDep, str, object]]:
     return out
 
 
-def sync_combo(s: Session, project: Project) -> dict:
+def sync_combo(s: Session, project: Project, *, rebuild: bool = False) -> dict:
     """Refresh a combined preview: its id is a hash of its parts' heads, so it rebuilds
     (with auto_rebuild on) whenever any part's branch moves."""
     branch = next((b for b in project.branches if b.name == COMBO_BRANCH), None)
@@ -190,7 +191,7 @@ def sync_combo(s: Session, project: Project) -> dict:
         counts["conflicts"] = 1
         return counts
     s.flush()
-    if branch.enabled and _needs_build(s, branch, is_new, new_commit):
+    if branch.enabled and (rebuild or _needs_build(s, branch, is_new, new_commit)):
         jobs.queue_build(s, branch)
         counts["queued"] = 1
     return counts

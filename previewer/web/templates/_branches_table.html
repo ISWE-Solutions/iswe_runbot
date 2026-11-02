@@ -134,7 +134,8 @@
               <button type="button" class="{{ btn }}" hx-post="/branches/{{ b.id }}/check" hx-target="#check-{{ b.id }}" title="Check that every dependency branch exists for Odoo {{ b.effective_version }}">Check</button>
               {% if latest %}<a href="/builds/{{ latest.id }}" class="{{ btn }}">Logs</a>{% endif %}
               {% if not b.deleted_at and b.enabled %}
-                <button type="button" class="{{ btn }}" hx-post="/branches/{{ b.id }}/rebuild{{ qs }}" hx-target="#branches-table" hx-swap="outerHTML">Rebuild</button>
+                <button type="button" class="{{ btn }}" hx-post="/branches/{{ b.id }}/rebuild{{ qs }}" hx-target="#branches-table" hx-swap="outerHTML" title="Rebuild the commit already recorded">Rebuild</button>
+                <button type="button" class="{{ btn }}" hx-post="/branches/{{ b.id }}/pull-rebuild{{ qs }}" hx-target="#branches-table" hx-swap="outerHTML" title="Fetch the newest commit from GitHub with the project's Git credential, then rebuild">Pull latest &amp; rebuild</button>
                 {% if live %}<button type="button" class="{{ btn }}" hx-post="/branches/{{ b.id }}/stop{{ qs }}" hx-target="#branches-table" hx-swap="outerHTML" hx-confirm="Stop the {{ b.name }} preview?">Stop</button>{% endif %}
               {% endif %}
               {% if (not live and b.builds|selectattr('status', 'in', ['sleeping', 'stopped'])|list) or (live and live.status == 'sleeping') %}

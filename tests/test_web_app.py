@@ -116,6 +116,80 @@ def test_rebuild_queues_build(s, user_client):
     assert s.query(Job).filter_by(type="build").one().payload == {"build_id": build.id}
 
 
+def test_pull_latest_records_head_and_rebuilds(s, user_client, monkeypatch):
+    from datetime import datetime, timezone
+    from previewer import github
+    p = make_project(s)
+    b = make_branch(s, p)
+    seen = {}
+
+    def head(url, token, branch):
+        seen.update(url=url, token=token, branch=branch)
+        return github.BranchInfo(branch, "b" * 40, "Add payslip", "Ann",
+                                 datetime(2026, 11, 1, tzinfo=timezone.utc))
+
+    monkeypatch.setattr(github, "branch_head", head)
+    r = user_client.post(f"/branches/{b.id}/pull-rebuild")
+    assert r.status_code == 303
+    assert seen == {"url": p.repo_url, "token": "tok", "branch": "v18"}  # the default Git credential
+    s.expire_all()
+    b = s.get(Branch, b.id)
+    assert (b.last_commit_sha, b.last_commit_message, b.last_commit_author) == ("b" * 40, "Add payslip", "Ann")
+    build = s.query(Build).one()
+    assert build.commit_sha == "b" * 40 and build.status == "queued"
+    assert "Rebuilding v18 from bbbbbbb (new commit: Add payslip)" in user_client.get(f"/branches/{b.id}").text
+
+
+def test_pull_latest_rebuilds_an_unchanged_commit_even_with_auto_rebuild_paused(s, user_client, monkeypatch):
+    from previewer import github
+    p = make_project(s)
+    b = make_branch(s, p)
+    b.auto_rebuild = False
+    s.commit()
+    monkeypatch.setattr(github, "branch_head", lambda url, token, br: github.BranchInfo(br, "a" * 40, "Fix tax"))
+    assert user_client.post(f"/branches/{b.id}/pull-rebuild").status_code == 303
+    assert s.query(Build).one().commit_sha == "a" * 40
+    assert "already the latest commit" in user_client.get(f"/branches/{b.id}").text
+
+
+def test_pull_latest_reports_github_errors_without_building(s, user_client, monkeypatch):
+    from previewer import github
+    p = make_project(s)
+    b = make_branch(s, p)
+
+    def refused(url, token, br):
+        raise github.GitHubError("GitHub rejected the token (401)")
+
+    monkeypatch.setattr(github, "branch_head", refused)
+    user_client.post(f"/branches/{b.id}/pull-rebuild")
+    html = user_client.get(f"/branches/{b.id}").text
+    assert "could not read the latest commit (GitHub rejected the token (401)" in html
+    assert s.query(Build).count() == 0
+
+    monkeypatch.setattr(github, "branch_head", lambda url, token, br: None)
+    user_client.post(f"/branches/{b.id}/pull-rebuild")
+    assert "no longer exists on GitHub" in user_client.get(f"/branches/{b.id}").text
+    assert s.query(Build).count() == 0
+
+
+def test_branch_head_reads_one_api_call(monkeypatch):
+    import httpx
+    from previewer import github
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.raw_path.decode())
+        return httpx.Response(200, json={"name": "feature/x", "commit": {"sha": "c" * 40, "commit": {
+            "message": "Add payslip\n\nlong body", "author": {"name": "Ann", "date": "2026-11-01T08:00:00Z"}}}})
+
+    monkeypatch.setattr(github, "_client", lambda token: httpx.Client(
+        base_url=github.API, transport=httpx.MockTransport(handler)))
+    head = github.branch_head("https://github.com/acme/payroll_extension.git", "t", "feature/x")
+    assert calls == ["/repos/acme/payroll_extension/branches/feature%2Fx"]
+    assert (head.sha, head.message, head.author) == ("c" * 40, "Add payslip", "Ann")
+    assert head.committed_at.isoformat() == "2026-11-01T08:00:00+00:00"
+
+
 # ---------- projects ----------
 
 PROJECT_FORM = {

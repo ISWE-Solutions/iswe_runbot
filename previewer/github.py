@@ -2,6 +2,7 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from urllib.parse import quote
 
 import httpx
 
@@ -89,6 +90,26 @@ def fill_commit_details(repo_url: str, token: str, branches: list[BranchInfo]) -
             b.message = (commit["message"] or "").splitlines()[0][:500] if commit["message"] else ""
             b.author = commit["author"]["name"]
             b.committed_at = datetime.fromisoformat(commit["author"]["date"].replace("Z", "+00:00"))
+
+
+def branch_head(repo_url: str, token: str, branch: str) -> BranchInfo | None:
+    """The branch's latest commit with its details (one API call); None if the branch is gone.
+    Raises GitHubError when the repo itself is unreachable."""
+    owner, repo = parse_repo(repo_url)
+    with _client(token) as c:
+        r = c.get(f"/repos/{owner}/{repo}/branches/{quote(branch, safe='')}")
+        if r.status_code == 404:
+            _check(c.get(f"/repos/{owner}/{repo}"), f"{owner}/{repo}")
+            return None
+        _check(r, f"{owner}/{repo} branch {branch}")
+        head = r.json()["commit"]
+    commit = head["commit"]
+    message = (commit.get("message") or "").splitlines()
+    author = commit.get("author") or {}
+    return BranchInfo(name=branch, sha=head["sha"], message=message[0][:500] if message else "",
+                      author=author.get("name"),
+                      committed_at=datetime.fromisoformat(author["date"].replace("Z", "+00:00"))
+                      if author.get("date") else None)
 
 
 def branch_exists(repo_url: str, token: str, branch: str) -> bool:

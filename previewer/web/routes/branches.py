@@ -65,6 +65,17 @@ def rebuild(bid: int, request: Request, s: Session = Depends(get_db), user: User
     return _done(request, b, s)
 
 
+@router.post("/branches/{bid}/pull-rebuild")
+def pull_rebuild(bid: int, request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
+    b = get_branch(s, bid)
+    if not b.enabled:
+        flash(request, f"{b.name} is not selected for building; select it first.", "error")
+    elif msg := selection.pull_latest(request, s, b):
+        flash(request, msg, "success")
+    s.commit()
+    return _done(request, b, s)
+
+
 @router.post("/branches/{bid}/version")
 def change_version(bid: int, request: Request, odoo_version: str = Form(...),
                    s: Session = Depends(get_db), user: User = Depends(current_user)):

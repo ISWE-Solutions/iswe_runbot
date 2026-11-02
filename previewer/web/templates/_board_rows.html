@@ -55,7 +55,8 @@
           {% else %}<span class="text-[11px] text-emerald-600" title="Public demo: anyone with the link can open the preview"><i class="bi bi-globe2"></i></span>{% endif %}
           {% if b.stale_since %}<span class="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600" title="Stopped as stale on {{ b.stale_since.strftime('%Y-%m-%d') }}: no new commits for a while">⏸ stale</span>{% endif %}
           {% if b.enabled %}
-          <button hx-post="/branches/{{ b.id }}/rebuild?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML" class="{{ ibtn }}" title="Rebuild {{ b.name }}">{{ icon('rebuild', 'h-3.5 w-3.5') }}</button>
+          <button hx-post="/branches/{{ b.id }}/rebuild?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML" class="{{ ibtn }}" title="Rebuild {{ b.name }} (commit already recorded)">{{ icon('rebuild', 'h-3.5 w-3.5') }}</button>
+          {% if not b.project.is_plain %}<button hx-post="/branches/{{ b.id }}/pull-rebuild?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML" class="{{ ibtn }}" title="Pull latest &amp; rebuild {{ b.name }}: fetch the newest commit from GitHub with the project's Git credential, then rebuild">{{ icon('pull', 'h-3.5 w-3.5') }}</button>{% endif %}
           {% endif %}
           {% if (not live and b.builds|selectattr('status', 'in', ['sleeping', 'stopped'])|list) or (live and live.status == 'sleeping') %}
           <button hx-post="/branches/{{ b.id }}/wake?{{ qs }}" hx-target="#board-rows" hx-swap="outerHTML" class="{{ ibtn }}" title="Wake {{ b.name }}">{{ icon('power', 'h-3.5 w-3.5') }}</button>

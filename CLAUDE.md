@@ -46,7 +46,7 @@ Dashboard: http://preview.localhost (browsers and curl resolve `*.localhost` to 
 ## Rules
 
 - Only the worker talks to Docker. The web app enqueues jobs and reads the DB and log files.
-- Job payloads: `build {build_id}` (always via `jobs.queue_build`), `sync {project_id}`,
+- Job payloads: `build {build_id}` (always via `jobs.queue_build`), `sync {project_id, rebuild?}`,
   `stop|start|wake {build_id}`, `delete {build_id, container_id, db_name, purge_log?}` (snapshot,
   since the build row may be gone; purge_log also removes the log), `pull {version}`.
 - DATA_DIR is mounted at the same absolute path in app, worker and host, so paths the
@@ -68,6 +68,9 @@ Dashboard: http://preview.localhost (browsers and curl resolve `*.localhost` to 
 - `Branch.auto_rebuild` off: new commits are recorded but never build the branch (sync,
   and Phase 2 webhooks/polling); manual Rebuild still works. Deleting all of a branch's
   builds does not trigger a rebuild by itself.
+- Rebuild = the recorded `last_commit_sha`. Pull latest & rebuild (`selection.pull_latest`) reads the
+  head with `github.branch_head` and the project's credential, records it and always builds (combos:
+  `sync {rebuild: true}`); it works without webhooks.
 - Combined previews: `Project.kind == "combo"`, no repo of its own (`repo_url` ""). Its parts are
   its `project_dependencies`; its single Branch row is named `models.COMBO_BRANCH` and pins each
   part via `dependency_branches`. Host = `<slug>.<domain>` (`preview_host(..., combo=True)`).

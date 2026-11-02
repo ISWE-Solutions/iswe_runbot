@@ -16,7 +16,7 @@
   {% if not branch.auto_rebuild %}<span class="rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-800 ring-1 ring-amber-200" title="New commits are not built; Rebuild still works">⏸ auto-rebuild paused</span>{% endif %}
 </div>
 {% set nb = unbuilt_commit(branch) %}
-{% if nb %}<p class="mt-2 text-sm text-amber-800">New commit <code>{{ nb }}</code> is not built because auto-rebuild is paused. Press Rebuild to build it.</p>{% endif %}
+{% if nb %}<p class="mt-2 text-sm text-amber-800">New commit <code>{{ nb }}</code> is not built because auto-rebuild is paused. Press Rebuild or Pull latest &amp; rebuild to build it.</p>{% endif %}
 {% if branch.deleted_at %}<p class="mt-2 text-sm text-red-700">This branch was deleted on GitHub {{ branch.deleted_at|ago }}.</p>{% endif %}
 {% if branch.host_conflict %}<p class="mt-2 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">⚠ {{ branch.host_conflict }}</p>{% endif %}
 {% if not branch.enabled %}<p class="mt-2 text-sm text-gray-600">This branch is not selected for building. Select it on the project's <a class="text-indigo-600 hover:underline" href="/projects/{{ project.id }}?tab=branches&sel=all">Branches</a> tab.</p>{% endif %}
@@ -54,7 +54,8 @@
     <div class="mt-4 flex flex-wrap gap-2">
       {% if not branch.deleted_at %}
       {% if branch.enabled %}
-      <form method="post" action="/branches/{{ branch.id }}/rebuild">{{ csrf() }}<button class="{{ btn }}">Rebuild</button></form>
+      <form method="post" action="/branches/{{ branch.id }}/rebuild">{{ csrf() }}<button class="{{ btn }}" title="Rebuild the commit already recorded">Rebuild</button></form>
+      <form method="post" action="/branches/{{ branch.id }}/pull-rebuild">{{ csrf() }}<button class="{{ btn }}" title="Fetch the newest commit from GitHub with the project's Git credential, then rebuild">Pull latest &amp; rebuild</button></form>
       {% else %}
       <form method="post" action="/branches/{{ branch.id }}/select">{{ csrf() }}<button class="{{ btn }}">Select and build</button></form>
       {% endif %}

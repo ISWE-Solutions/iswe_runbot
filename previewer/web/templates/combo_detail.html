@@ -96,6 +96,7 @@
     <h2 class="text-sm font-medium text-gray-500">Actions</h2>
     <div class="mt-3 flex flex-wrap gap-2">
       <form method="post" action="/branches/{{ branch.id }}/rebuild">{{ csrf() }}<button class="{{ btn }}">Rebuild</button></form>
+      {% if not project.is_plain %}<form method="post" action="/branches/{{ branch.id }}/pull-rebuild">{{ csrf() }}<button class="{{ btn }}" title="Fetch the newest commit of every part from GitHub with the saved Git credentials, then rebuild">Pull latest &amp; rebuild</button></form>{% endif %}
       {% if live %}<form method="post" action="/branches/{{ branch.id }}/stop">{{ csrf() }}<button class="{{ btn }}">Stop</button></form>{% endif %}
       {% if not project.is_plain %}<form method="post" action="/branches/{{ branch.id }}/auto-rebuild">{{ csrf() }}<button class="{{ btn }}" title="{{ 'Stop rebuilding when a part gets new commits' if branch.auto_rebuild else 'Rebuild again when a part gets new commits' }}">{{ 'Pause auto-rebuild' if branch.auto_rebuild else 'Resume auto-rebuild' }}</button></form>{% endif %}
       {% if (not live and branch.builds|selectattr('status', 'in', ['sleeping', 'stopped'])|list) or (live and live.status == 'sleeping') %}
