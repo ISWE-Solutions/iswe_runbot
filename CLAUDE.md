@@ -23,6 +23,7 @@ previewer/
   testresults.py   module test results from an Odoo log (pure): parse(log, mounts) -> TestReport
   gitmirror.py     bare mirrors under DATA_DIR/repos, export commits    (worker only)
   mailer.py        outgoing email over SMTP (System > Mail): config(), ready(), send() -> MailError
+  alerts.py        build alerts (System > Alerts): Slack, Teams, Discord, Google Chat, JSON webhook, email
   cli.py           python -m previewer.cli seed | create-user
   web/             FastAPI app (main.py), routes, Jinja + HTMX templates, Tailwind
   worker/          python -m previewer.worker: job loop, build pipeline, Docker ops
@@ -91,8 +92,13 @@ Dashboard: http://preview.localhost (browsers and curl resolve `*.localhost` to 
   `worker/maintenance.py` (cleanup, prune, backups) each export `TASKS = [Task(name, every, run)]`.
   Last runs live in `scheduler_state`; settings come from `appsettings` at every tick.
 - Build events: the pipeline calls `worker/notify.build_event(build_id, "building"|"running"|"failed")`
-  (GitHub commit status when `Project.post_commit_status`, Slack when `slack_webhook_url_enc` is set).
-  It must never raise.
+  (GitHub commit status when `Project.post_commit_status`; alerts for failures, fixes and module tests
+  newly failing / passing again via `alerts.targets(s)` + `alerts.deliver()` to every channel saved on
+  System > Alerts: `*_webhook_url_enc` Fernet-encrypted, `alert_emails` through `mailer`). Neither may
+  raise; one broken channel never stops the others.
+- Loading feedback: `static/loading.js` + `#loading-bar` in base.html (CSS in theme.css) cover every
+  page: full-page submits/links and user-started htmx requests spin their button and show the top bar;
+  polling and `load` triggers stay silent. Mark file downloads with the `download` attribute.
 - Previews: every preview router has the `previewer-auth@docker` forward-auth middleware (defined on
   the app service). `/auth/forward` decides per request from the host: allowed when the project has
   `preview_auth_required` off, or the request has a valid `previewer_pass` cookie (signed, on

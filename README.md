@@ -176,6 +176,14 @@ field left blank uses its `.env` value, marked "from server .env" on the page.
 3. On System > Sign-in (or in `.env`: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`): the Client ID
    and the secret. These are unrelated to `GITHUB_USERNAME` / `GITHUB_TOKEN`, which pull code.
 
+## Alerts
+
+System → Alerts sends build alerts (a build fails, a failed branch is fixed, module tests start
+failing or pass again) to every channel you set up: Slack, Microsoft Teams (a channel workflow
+"Post to a channel when a webhook request is received"), Discord, Google Chat, any JSON webhook
+(Mattermost, n8n, Zapier, your own service) and email addresses. Webhook URLs are stored
+encrypted. Each channel has a **Send test** button.
+
 ## Email
 
 Open System → Mail and enter the SMTP server (for Microsoft 365: `smtp.office365.com`, port 587,

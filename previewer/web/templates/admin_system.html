@@ -52,7 +52,7 @@
 <div class="mt-6">
 {{ tabs([('previews', 'Previews', previews|length), ('queue', 'Build queue', queue|length),
          ('tasks', 'Scheduled tasks', failed_tasks or none, 'alert'), ('templates', 'Base databases', templates|length),
-         ('settings', 'Settings'), ('sign-in', 'Sign-in'), ('mail', 'Mail'), ('jobs', 'Recent jobs')], tab, '/admin/system', 'System sections') }}
+         ('settings', 'Settings'), ('alerts', 'Alerts'), ('sign-in', 'Sign-in'), ('mail', 'Mail'), ('jobs', 'Recent jobs')], tab, '/admin/system', 'System sections') }}
 </div>
 
 {% if tab == 'previews' %}
@@ -131,20 +131,6 @@
         {% if kind == 'bool' %}
         <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="{{ key }}" class="mt-1" {% if values[key] in ('1', 'on', 'true') %}checked{% endif %}>
           <span><span class="font-medium">{{ label }}</span>{% if help %}<span class="block text-xs text-gray-500">{{ help }}</span>{% endif %}</span></label>
-        {% elif kind == 'secret' %}
-        <div class="text-sm">
-          <label for="slack_url" class="font-medium">{{ label }}</label>
-          <span class="ml-1 text-xs {{ 'text-green-700' if slack_set else 'text-gray-500' }}">{{ '· set' if slack_set else '· not set' }}</span>
-          <input id="slack_url" type="url" name="slack_webhook_url" autocomplete="off" placeholder="https://hooks.slack.com/services/…"
-                 class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm">
-          {% if errors.get(key) %}<p class="mt-1 text-xs text-red-700">{{ errors[key] }}</p>{% endif %}
-          <p class="mt-1 text-xs text-gray-500">{{ help }}</p>
-          <div class="mt-2 flex flex-wrap items-center gap-3">
-            {% if slack_set %}<label class="flex items-center gap-1 text-xs"><input type="checkbox" name="slack_clear"> remove the saved URL</label>{% endif %}
-            {% if slack_set %}<button type="button" hx-post="/admin/system/slack-test" hx-target="#slack-test" class="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-50">Send test message</button>{% endif %}
-            <span id="slack-test"></span>
-          </div>
-        </div>
         {% else %}
         <label class="block text-sm"><span class="font-medium">{{ label }}</span>
           <input name="{{ key }}" value="{{ values[key] }}"
@@ -164,6 +150,64 @@
     <span class="text-xs text-gray-500">Applies on the worker's next check; build slots after a worker restart.</span>
   </div>
 </form>
+
+{% elif tab == 'alerts' %}
+{% set input = "mt-1 block w-full rounded-md border px-3 py-1.5 text-sm" %}
+{% set small_btn = "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-gray-50" %}
+<p class="mb-4 text-sm text-gray-600">Where build alerts go: a build fails, a failed branch is fixed, or module tests
+  start failing or pass again. Every channel you set up gets each alert. A save applies at once, no restart.</p>
+<div class="grid gap-6 lg:grid-cols-2">
+  {% for key, h in alerts.hooks.items() %}
+  {% set c = h.channel %}{% set err = alert_errors.get(key, {}) %}
+  <form id="alert-{{ key }}" method="post" action="/admin/system/alerts/{{ key }}" class="{{ card }} min-w-0 space-y-3 self-start" data-alert="{{ key }}">
+    {{ csrf() }}
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="text-base font-semibold">{{ c.label }}</h2>
+      {% if h.saved %}<span class="inline-flex rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800" data-status="{{ key }}">On</span>
+      {% else %}<span class="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700" data-status="{{ key }}">Off</span>{% endif %}
+    </div>
+    <div class="text-sm">
+      <label for="alert-{{ key }}-url" class="font-medium">Webhook URL</label>
+      {% if h.saved %}<span class="ml-1 text-xs text-green-700" data-secret="saved">· Saved (encrypted)</span>{% endif %}
+      <input id="alert-{{ key }}-url" type="url" name="url" autocomplete="off" spellcheck="false"
+             placeholder="{{ 'Blank keeps the saved URL' if h.saved else c.placeholder }}"
+             class="{{ input }} font-mono {{ 'border-red-400' if err.get('url') else 'border-gray-300' }}">
+      {% if err.get('url') %}<p class="mt-1 text-xs text-red-700" data-field-error>{{ err.url }}</p>{% endif %}
+      <p class="mt-1 text-xs text-gray-500">{{ c.help }}</p>
+      {% if h.saved %}<label class="mt-2 flex items-center gap-1 text-xs"><input type="checkbox" name="clear"> Turn off and remove the saved URL</label>{% endif %}
+    </div>
+    <div class="flex flex-wrap items-center gap-3 border-t border-gray-200 pt-3">
+      <button class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
+      {% if h.saved %}<button type="button" class="{{ small_btn }}" hx-post="/admin/system/alerts/{{ key }}/test" hx-target="#alert-{{ key }}-result">Send test</button>{% endif %}
+      <div id="alert-{{ key }}-result" aria-live="polite"></div>
+    </div>
+  </form>
+  {% endfor %}
+
+  {% set err = alert_errors.get('email', {}) %}
+  <form id="alert-email" method="post" action="/admin/system/alerts/email" class="{{ card }} min-w-0 space-y-3 self-start" data-alert="email">
+    {{ csrf() }}
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="text-base font-semibold">Email</h2>
+      {% if alerts.emails and not alerts.mail_missing %}<span class="inline-flex rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800" data-status="email">On</span>
+      {% else %}<span class="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700" data-status="email">Off</span>{% endif %}
+    </div>
+    <div class="text-sm">
+      <label for="alert-emails" class="font-medium">Send alerts to</label>
+      <textarea id="alert-emails" name="alert_emails" rows="2" spellcheck="false" placeholder="dev-team@iswesolutions.com, qa@iswesolutions.com"
+                class="{{ input }} {{ 'border-red-400' if err.get('alert_emails') else 'border-gray-300' }}">{{ alert_form.get('email', alerts.emails) }}</textarea>
+      {% if err.get('alert_emails') %}<p class="mt-1 text-xs text-red-700" data-field-error>{{ err.alert_emails }}</p>{% endif %}
+      <p class="mt-1 text-xs text-gray-500">Addresses separated by commas. Blank turns email alerts off.</p>
+      {% if alerts.mail_missing %}<p class="mt-2 text-xs text-amber-700">The mail server is not set up yet (missing: {{ alerts.mail_missing|join(', ') }}):
+        <a class="underline" href="/admin/system?tab=mail">set it up on the Mail tab</a>.</p>{% endif %}
+    </div>
+    <div class="flex flex-wrap items-center gap-3 border-t border-gray-200 pt-3">
+      <button class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700">Save</button>
+      {% if alerts.emails %}<button type="button" class="{{ small_btn }}" hx-post="/admin/system/alerts/email/test" hx-target="#alert-email-result">Send test</button>{% endif %}
+      <div id="alert-email-result" aria-live="polite"></div>
+    </div>
+  </form>
+</div>
 
 {% elif tab == 'sign-in' %}
 {% set input = "mt-1 block w-full rounded-md border px-3 py-1.5 text-sm" %}

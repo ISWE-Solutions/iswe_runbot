@@ -1,15 +1,12 @@
-"""Outside notifications about builds (GitHub commit statuses, Slack). Called by the
-pipeline; must never raise, and gives up after a few seconds so a slow GitHub or Slack never
-holds a build slot."""
+"""Outside notifications about builds (GitHub commit statuses, and alerts to Slack, Teams,
+Discord, Google Chat, a webhook and email via alerts.py). Called by the pipeline; must never
+raise, and gives up after a few seconds so a slow service never holds a build slot."""
 import logging
 
-import httpx
-
-from .. import appsettings, credentials, github
+from .. import alerts, credentials, github
 from ..config import get_settings
 from ..db import session_scope
 from ..models import Build
-from ..security import decrypt
 
 log = logging.getLogger("previewer.notify")
 
@@ -95,29 +92,35 @@ def _send(build_id: int, event: str) -> None:
                 state = "failure" if b.test_status == "failed" else "success"
                 statuses.append((project.repo_url, token, b.commit_sha, state, tests_ctx, tests,
                                  build_url(b.id)))
-        slack_enc = appsettings.get(s, "slack_webhook_url_enc")
-        slack_text = None
-        if slack_enc and event == "failed":
-            slack_text = (f":x: {project.name} / {b.branch.name}: build #{b.id} failed on Odoo "
-                          f"{b.odoo_version}\n{headline(b)}\n{build_url(b.id)}")
-        elif slack_enc and event == "running" and _previous_failed(s, b):
-            url = get_settings().preview_url(b.host) if b.host else build_url(b.id)
-            slack_text = (f":white_check_mark: {project.name} / {b.branch.name}: fixed, build #{b.id} "
-                          f"is running on Odoo {b.odoo_version}\n{url}")
-        elif slack_enc and event == "running" and _test_change(b) == "failed":
-            slack_text = (f":warning: {project.name} / {b.branch.name}: module tests failed on build "
-                          f"#{b.id} ({tests}); the preview is running\n{build_url(b.id)}")
-        elif slack_enc and event == "running" and _test_change(b) == "recovered":
-            slack_text = (f":white_check_mark: {project.name} / {b.branch.name}: module tests pass "
-                          f"again on build #{b.id} ({tests})\n{build_url(b.id)}")
+        alert = _alert(s, b, event, tests)
+        channels = alerts.targets(s) if alert else []
     for status in statuses:
         try:
             github.create_commit_status(*status, timeout=TIMEOUT)
         except Exception as e:  # noqa: BLE001
             log.warning("commit status for build %s not posted: %s", build_id, e)
-    if slack_text:
-        try:
-            r = httpx.post(decrypt(slack_enc), json={"text": slack_text}, timeout=TIMEOUT)
-            r.raise_for_status()
-        except Exception as e:  # noqa: BLE001
-            log.warning("Slack message for build %s not sent: %s", build_id, type(e).__name__)
+    if channels:
+        alerts.deliver(channels, alert)
+
+
+def _alert(s, b: Build, event: str, tests: str | None) -> alerts.Alert | None:
+    """Failures, fixes, and module tests newly failing or passing again; None otherwise."""
+    project, where = b.branch.project, f"{b.branch.project.name} / {b.branch.name}"
+    common = {"project": project.name, "branch": b.branch.name, "build_id": b.id, "odoo_version": b.odoo_version}
+    if event == "failed":
+        return alerts.Alert("failed", f"{where}: build #{b.id} failed on Odoo {b.odoo_version}",
+                            build_url(b.id), headline(b), **common)
+    if event != "running":
+        return None
+    if _previous_failed(s, b):
+        url = get_settings().preview_url(b.host) if b.host else build_url(b.id)
+        return alerts.Alert("fixed", f"{where}: fixed, build #{b.id} is running on Odoo {b.odoo_version}",
+                            url, **common)
+    change = _test_change(b)
+    if change == "failed":
+        return alerts.Alert("tests_failed", f"{where}: module tests failed on build #{b.id} ({tests}); "
+                            "the preview is running", build_url(b.id), **common)
+    if change == "recovered":
+        return alerts.Alert("tests_recovered", f"{where}: module tests pass again on build #{b.id} ({tests})",
+                            build_url(b.id), **common)
+    return None

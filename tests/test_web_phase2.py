@@ -252,33 +252,75 @@ def test_system_page_without_and_with_heartbeat_details(s, user_client, heartbea
     assert "Disk 99% full" in board.text
 
 
-def test_system_settings_save_validate_and_slack_encrypted(s, user_client):
+def test_system_settings_save_and_validate(s, user_client):
     c = user_client
-    form = {k: appsettings.get(s, k) for k in appsettings.defaults() if k != "slack_webhook_url_enc"}
+    form = {k: appsettings.get(s, k) for k in appsettings.defaults()}
     form.update({"max_running_previews": "x", "preview_memory_limit": "lots", "disk_warning_percent": "150"})
     r = c.post("/admin/system/settings", data=form)
     assert r.status_code == 400 and "Whole number" in r.text and "Like 1536m" in r.text and "Between 1 and 100" in r.text
     form.update({"max_running_previews": "10", "preview_memory_limit": "2g", "disk_warning_percent": "85",
-                 "use_db_templates": "", "slack_webhook_url": "https://hooks.slack.com/services/T/B/x"})
+                 "use_db_templates": ""})
     assert c.post("/admin/system/settings", data=form).status_code == 303
     s.expire_all()
     assert appsettings.get(s, "max_running_previews") == "10" and appsettings.get(s, "use_db_templates") == "0"
-    enc = appsettings.get(s, "slack_webhook_url_enc")
-    assert enc and "hooks.slack.com" not in enc and decrypt(enc).endswith("/T/B/x")
-    assert "hooks.slack.com/services/T/B/x" not in c.get("/admin/system").text
 
 
-def test_slack_test_message(s, user_client, monkeypatch):
+@pytest.mark.parametrize("channel,url", [
+    ("slack", "https://hooks.slack.com/services/T/B/x"),
+    ("teams", "https://prod-01.westeurope.logic.azure.com/workflows/abc/triggers/manual/paths/invoke?sig=s3cr3t"),
+    ("discord", "https://discord.com/api/webhooks/1/tok"),
+    ("google_chat", "https://chat.googleapis.com/v1/spaces/A/messages?key=k&token=t"),
+    ("webhook", "http://n8n.internal:5678/webhook/previewer"),
+])
+def test_alert_channel_saved_encrypted_tested_and_removed(s, user_client, monkeypatch, channel, url):
+    import httpx
+    from previewer import alerts
+    c = user_client
+    setting = alerts.CHANNELS[channel].setting
+    assert "Nothing saved" in c.post(f"/admin/system/alerts/{channel}/test").text
+    r = c.post(f"/admin/system/alerts/{channel}", data={"url": url})
+    assert r.status_code == 303 and r.headers["location"] == f"/admin/system?tab=alerts#alert-{channel}"
+    s.expire_all()
+    enc = appsettings.get(s, setting)
+    assert enc and url not in enc and decrypt(enc) == url
+    html = c.get("/admin/system?tab=alerts").text
+    assert url not in html and f'data-status="{channel}">On' in html
+
+    sent = {}
+    monkeypatch.setattr(httpx, "post", lambda u, json, timeout: sent.update(url=u, json=json)
+                        or httpx.Response(200, text="ok", request=httpx.Request("POST", u)))
+    assert "✓ Sent" in c.post(f"/admin/system/alerts/{channel}/test").text and sent["url"] == url
+
+    c.post(f"/admin/system/alerts/{channel}", data={"url": ""})  # blank keeps it
+    s.expire_all()
+    assert appsettings.get(s, setting) == enc
+    c.post(f"/admin/system/alerts/{channel}", data={"url": "", "clear": "on"})
+    s.expire_all()
+    assert appsettings.get(s, setting) == ""
+
+
+def test_alert_url_validation_and_test_failure(s, user_client, monkeypatch):
     import httpx
     c = user_client
-    assert "No Slack webhook" in c.post("/admin/system/slack-test").text
-    from previewer.security import encrypt
-    appsettings.put(s, "slack_webhook_url_enc", encrypt("https://hooks.slack.com/services/T/B/x"))
-    s.commit()
-    sent = {}
-    monkeypatch.setattr(httpx, "post", lambda url, json, timeout: sent.update(url=url, json=json)
-                        or httpx.Response(200, text="ok"))
-    assert "Sent" in c.post("/admin/system/slack-test").text and sent["url"].endswith("/T/B/x")
+    r = c.post("/admin/system/alerts/slack", data={"url": "https://example.com/not-slack"})
+    assert r.status_code == 400 and "A Slack incoming-webhook URL" in r.text
+    assert appsettings.get(s, "slack_webhook_url_enc") == ""
+    c.post("/admin/system/alerts/teams", data={"url": "https://prod.logic.azure.com/workflows/x"})
+    monkeypatch.setattr(httpx, "post", lambda u, json, timeout: httpx.Response(
+        400, text="Invalid card", request=httpx.Request("POST", u)))
+    assert "The webhook answered 400: Invalid card" in c.post("/admin/system/alerts/teams/test").text
+
+
+def test_email_alert_recipients(s, user_client):
+    c = user_client
+    r = c.post("/admin/system/alerts/email", data={"alert_emails": "dev@iswe.co.zm, nope"})
+    assert r.status_code == 400 and "Not an email address: nope" in r.text
+    c.post("/admin/system/alerts/email", data={"alert_emails": "dev@iswe.co.zm; qa@iswe.co.zm dev@iswe.co.zm"})
+    s.expire_all()
+    assert appsettings.get(s, "alert_emails") == "dev@iswe.co.zm, qa@iswe.co.zm"
+    html = c.get("/admin/system?tab=alerts").text
+    assert "The mail server is not set up yet" in html and 'data-status="email">Off' in html
+    assert "Email is not set up yet" in c.post("/admin/system/alerts/email/test").text
 
 
 # ---------- project access & webhook panel ----------

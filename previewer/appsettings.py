@@ -29,8 +29,14 @@ def defaults() -> dict[str, str]:
         "backup_keep_days": "14",
         "image_prune_days": "7",
         "use_db_templates": "1",
-        # Fernet-encrypted Slack incoming-webhook URL; blank = no Slack messages
+        # Build alerts (System > Alerts, alerts.py): Fernet-encrypted webhook URLs, blank = off;
+        # alert_emails = recipients, sent through the System > Mail server
         "slack_webhook_url_enc": "",
+        "teams_webhook_url_enc": "",
+        "discord_webhook_url_enc": "",
+        "google_chat_webhook_url_enc": "",
+        "alert_webhook_url_enc": "",
+        "alert_emails": "",
         # Sign in with Microsoft / GitHub (System > Sign-in). No row or a blank row = the .env
         # value; the secrets are Fernet-encrypted here and plain in .env (web/sso.effective).
         "microsoft_tenant_id": c.microsoft_tenant_id,

@@ -32,7 +32,7 @@ SECRET_MAX = 500
 HOST_RE = re.compile(r"^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$")
 ADDRESS_RE = re.compile(r"^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$")
 
-# (key, label, kind, help); kinds: int, percent, float, memory, bool, secret
+# (key, label, kind, help); kinds: int, percent, float, memory, bool
 GROUPS: list[tuple[str, list[tuple[str, str, str, str]]]] = [
     ("Limits", [
         ("max_running_previews", "Previews running at once", "int",
@@ -66,10 +66,6 @@ GROUPS: list[tuple[str, list[tuple[str, str, str, str]]]] = [
         ("disk_warning_percent", "Warn when the disk is this full (%)", "percent", ""),
         ("disk_min_free_gb", "Pause new builds below this much free disk (GB)", "int", ""),
     ]),
-    ("Notifications", [
-        ("slack_webhook_url_enc", "Slack incoming-webhook URL", "secret",
-         "Build failures and recoveries are posted here. Stored encrypted; blank keeps the current one."),
-    ]),
 ]
 
 
@@ -100,12 +96,10 @@ def disk_warning(s: Session) -> dict | None:
 
 
 def validate(form, current: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
-    """Form -> ({key: new value}, {key: error}). Secrets are handled by the caller."""
+    """Form -> ({key: new value}, {key: error})."""
     values, errors = {}, {}
     for _, fields in GROUPS:
         for key, label, kind, _ in fields:
-            if kind == "secret":
-                continue
             if kind == "bool":
                 values[key] = "1" if form.get(key) in ("on", "1", "true") else "0"
                 continue
@@ -247,6 +241,40 @@ def save_mail(s: Session, form) -> dict[str, str]:
         appsettings.put(s, "smtp_password_enc", "")
     elif password:
         appsettings.put(s, "smtp_password_enc", encrypt(password))
+    return {}
+
+
+def alert_channels(s: Session) -> dict:
+    """System > Alerts: per webhook channel whether a URL is saved (never the URL), plus the
+    email recipients and whether the mail server is ready."""
+    from .. import alerts, mailer
+    hooks = {c.key: {"channel": c, "saved": bool(appsettings.get(s, c.setting))} for c in alerts.CHANNELS.values()}
+    return {"hooks": hooks, "emails": appsettings.get(s, "alert_emails"),
+            "mail_missing": mailer.missing(mailer.config(s))}
+
+
+def save_alert_channel(s: Session, channel: str, form) -> dict[str, str]:
+    """Validate and store one System > Alerts card; returns {field: error}. A blank URL keeps
+    the saved one; the remove checkbox clears it."""
+    from .. import alerts
+    from ..security import encrypt
+    if channel == alerts.EMAIL:
+        emails = alerts.parse_emails(form.get("alert_emails") or "")
+        bad = [e for e in emails if not alerts.EMAIL_RE.match(e)]
+        if bad:
+            return {"alert_emails": f"Not an email address: {', '.join(bad[:3])}"}
+        appsettings.put(s, "alert_emails", ", ".join(dict.fromkeys(emails)))
+        return {}
+    c = alerts.CHANNELS[channel]
+    url = (form.get("url") or "").strip()
+    if form.get("clear") in ("on", "1", "true"):
+        appsettings.put(s, c.setting, "")
+        return {}
+    if not url:
+        return {}
+    if len(url) > 2000 or not c.pattern.match(url):
+        return {"url": c.problem}
+    appsettings.put(s, c.setting, encrypt(url))
     return {}
 
 

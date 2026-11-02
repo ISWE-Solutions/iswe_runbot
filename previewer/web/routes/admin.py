@@ -1,7 +1,5 @@
 import re
 
-import httpx
-
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from markupsafe import escape
@@ -12,7 +10,7 @@ from ... import appsettings, github, jobs
 from ...config import get_settings
 from ...db import get_db
 from ...models import JOB_STATUSES, JOB_TYPES, Branch, Build, DbTemplate, Job, OdooVersion, Project, SchedulerState, User
-from ...security import decrypt, encrypt, hash_password
+from ...security import hash_password
 from .. import accounts, system_view
 from ..deps import current_user, flash, paginate, paginate_list, render
 
@@ -232,13 +230,14 @@ def update_user(uid: int, request: Request, active: str = Form(""),
 
 # ---------- system ----------
 
-SYSTEM_TABS = ("previews", "queue", "tasks", "templates", "settings", "sign-in", "mail", "jobs")
+SYSTEM_TABS = ("previews", "queue", "tasks", "templates", "settings", "alerts", "sign-in", "mail", "jobs")
 
 
 def _system_ctx(s: Session, errors: dict | None = None, form_values: dict | None = None, *,
                 tab: str = "previews", page: int = 1, jtype: str = "", jstatus: str = "",
                 signin_errors: dict | None = None, signin_form: dict | None = None,
-                mail_errors: dict | None = None, mail_form: dict | None = None) -> dict:
+                mail_errors: dict | None = None, mail_form: dict | None = None,
+                alert_errors: dict | None = None, alert_form: dict | None = None) -> dict:
     from datetime import datetime, timezone
     builds = dict(s.execute(select(Build.status, func.count()).group_by(Build.status)).all())
     queue = s.scalars(select(Job).where(Job.status.in_(("queued", "running"))).order_by(Job.id)).all()
@@ -279,13 +278,14 @@ def _system_ctx(s: Session, errors: dict | None = None, form_values: dict | None
         "failed_tasks": sum(1 for t in tasks if not t.last_ok),
         "groups": system_view.GROUPS,
         "values": {**current, **(form_values or {})},
-        "slack_set": bool(current.get("slack_webhook_url_enc")),
         "errors": errors or {},
         "disk_warning": system_view.disk_warning(s),
         "signin": system_view.signin(s) if tab == "sign-in" else {},
         "signin_errors": signin_errors or {}, "signin_form": signin_form or {},
         "mail": system_view.mail(s) if tab == "mail" else {},
         "mail_errors": mail_errors or {}, "mail_form": mail_form or {},
+        "alerts": system_view.alert_channels(s) if tab == "alerts" else {},
+        "alert_errors": alert_errors or {}, "alert_form": alert_form or {},
     }
 
 
@@ -301,38 +301,15 @@ async def save_system_settings(request: Request, s: Session = Depends(get_db), u
     form = await request.form()
     current = {k: appsettings.get(s, k) for k in appsettings.defaults()}
     values, errors = system_view.validate(form, current)
-    slack = (form.get("slack_webhook_url") or "").strip()
-    if slack and not slack.startswith("https://"):
-        errors["slack_webhook_url_enc"] = "Must be an https:// URL (Slack incoming webhook)"
     if errors:
         return render(request, "admin_system.html", _system_ctx(s, errors, dict(form), tab="settings"),
                       status_code=400)
     for k, v in values.items():
         appsettings.put(s, k, v)
-    if form.get("slack_clear") in ("on", "1"):
-        appsettings.put(s, "slack_webhook_url_enc", "")
-    elif slack:
-        appsettings.put(s, "slack_webhook_url_enc", encrypt(slack))
     s.commit()
     flash(request, "Settings saved. The worker picks them up on its next check"
                    " (the number of build slots after a worker restart).", "success")
     return RedirectResponse("/admin/system?tab=settings", status_code=303)
-
-
-@router.post("/system/slack-test", response_class=HTMLResponse)
-def slack_test(request: Request, s: Session = Depends(get_db), user: User = Depends(current_user)):
-    enc = appsettings.get(s, "slack_webhook_url_enc")
-    if not enc:
-        return '<p class="text-sm text-amber-700">No Slack webhook URL is saved yet.</p>'
-    try:
-        r = httpx.post(decrypt(enc), json={"text": f"Test message from the Previewer at "
-                                                   f"{get_settings().dashboard_url} (sent by {user.email})"},
-                       timeout=10)
-    except httpx.HTTPError as e:
-        return f'<p class="text-sm text-red-700">Could not reach Slack: {escape(type(e).__name__)}</p>'
-    if r.status_code >= 300:
-        return f'<p class="text-sm text-red-700">Slack answered {r.status_code}: {escape(r.text[:200])}</p>'
-    return '<p class="text-sm text-green-700">✓ Sent. Check the Slack channel.</p>'
 
 
 @router.post("/system/sign-in/{provider}")
@@ -394,3 +371,42 @@ def mail_test(request: Request, to: str = Form(""), s: Session = Depends(get_db)
     except mailer.MailError as e:
         return f'<p class="text-sm text-red-700" role="alert">{escape(str(e))}</p>'
     return f'<p class="text-sm text-green-700">✓ Sent to {escape(to)}. Check the inbox (and the spam folder).</p>'
+
+
+@router.post("/system/alerts/{channel}")
+async def save_alert_channel(channel: str, request: Request, s: Session = Depends(get_db),
+                             user: User = Depends(current_user)):
+    from ... import alerts
+    if channel not in alerts.CHANNELS and channel != alerts.EMAIL:
+        raise HTTPException(404)
+    form = await request.form()
+    label = alerts.CHANNELS[channel].label if channel in alerts.CHANNELS else "Email"
+    errors = system_view.save_alert_channel(s, channel, form)
+    if errors:
+        s.rollback()
+        flash(request, f"{label} alerts not saved: check the highlighted field.", "error")
+        return render(request, "admin_system.html",
+                      _system_ctx(s, tab="alerts", alert_errors={channel: errors},
+                                  alert_form={channel: str(form.get("alert_emails") or "")}),
+                      status_code=400)
+    s.commit()
+    flash(request, f"{label} alerts saved.", "success")
+    return RedirectResponse(f"/admin/system?tab=alerts#alert-{channel}", status_code=303)
+
+
+@router.post("/system/alerts/{channel}/test", response_class=HTMLResponse)
+def test_alert_channel(channel: str, request: Request, s: Session = Depends(get_db),
+                       user: User = Depends(current_user)):
+    from ... import alerts
+    if channel not in alerts.CHANNELS and channel != alerts.EMAIL:
+        raise HTTPException(404)
+    targets = alerts.targets(s, only=channel)
+    if not targets:
+        return '<p class="text-sm text-amber-700" role="alert">Nothing saved for this channel yet.</p>'
+    url = get_settings().dashboard_url
+    result = alerts.deliver(targets, alerts.Alert(
+        "test", "Test alert from the Previewer", url,
+        f"Sent by {user.email}. Build failures and fixes will arrive like this."))[channel]
+    if result:
+        return f'<p class="text-sm text-red-700" role="alert">{escape(result)}</p>'
+    return '<p class="text-sm text-green-700">✓ Sent. Check the channel.</p>'

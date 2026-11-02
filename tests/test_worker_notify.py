@@ -1,4 +1,4 @@
-from previewer import appsettings, github
+from previewer import alerts, appsettings, github
 from previewer.models import Branch, Build, GithubCredential, Project
 from previewer.security import encrypt
 from previewer.worker import notify
@@ -34,7 +34,7 @@ def _capture(monkeypatch):
         def raise_for_status(self):
             pass
 
-    monkeypatch.setattr(notify.httpx, "post", lambda url, json, timeout: calls["slack"].append((url, json)) or R())
+    monkeypatch.setattr(alerts.httpx, "post", lambda url, json, timeout: calls["slack"].append((url, json)) or R())
     return calls
 
 
@@ -134,3 +134,50 @@ def test_slack_when_tests_newly_fail_and_recover(s, monkeypatch):
     s.commit()
     notify.build_event(b.id, "running")
     assert "pass again" in calls["slack"][-1][1]["text"]
+
+
+def test_every_channel_gets_the_failure_in_its_own_format(s, monkeypatch):
+    calls = _capture(monkeypatch)
+    for key, url in (("slack_webhook_url_enc", "https://hooks.slack.test/x"),
+                     ("teams_webhook_url_enc", "https://prod.logic.azure.test/workflows/t"),
+                     ("discord_webhook_url_enc", "https://discord.test/api/webhooks/d"),
+                     ("google_chat_webhook_url_enc", "https://chat.googleapis.test/v1/spaces/g"),
+                     ("alert_webhook_url_enc", "https://hooks.example.test/previewer")):
+        appsettings.put(s, key, encrypt(url))
+    appsettings.put(s, "alert_emails", "ops@iswe.test")
+    s.commit()
+    mailed = []
+    monkeypatch.setattr(alerts.mailer, "send", lambda s_, to, subject, body, cfg=None: mailed.append((to, subject, body)))
+    b = _build(s, status="failed", diagnosis=[{"title": "Missing module dependency", "message": "hr_payroll"}])
+    notify.build_event(b.id, "failed")
+    sent = dict(calls["slack"])
+    slack = sent["https://hooks.slack.test/x"]["text"]
+    assert slack.startswith(":x: Payroll / v19: build #") and "Missing module dependency" in slack
+    card = sent["https://prod.logic.azure.test/workflows/t"]["attachments"][0]
+    assert card["contentType"] == "application/vnd.microsoft.card.adaptive"
+    assert card["content"]["body"][0]["color"] == "Attention"
+    assert card["content"]["actions"][0]["url"].endswith(f"/builds/{b.id}")
+    embed = sent["https://discord.test/api/webhooks/d"]["embeds"][0]
+    assert "failed on Odoo 19.0" in embed["title"] and embed["url"].endswith(f"/builds/{b.id}")
+    assert sent["https://chat.googleapis.test/v1/spaces/g"]["text"].startswith("*Payroll / v19: build #")
+    generic = sent["https://hooks.example.test/previewer"]
+    assert (generic["event"], generic["build_id"], generic["branch"]) == ("failed", b.id, "v19")
+    (to, subject, body), = mailed
+    assert to == ["ops@iswe.test"] and subject.startswith("[Previewer] Payroll / v19: build #")
+
+
+def test_one_broken_channel_does_not_stop_the_others(s, monkeypatch):
+    import httpx
+    sent = []
+
+    def post(url, json, timeout):
+        if "teams" in url:
+            raise httpx.ConnectTimeout("slow")
+        sent.append(url)
+        return httpx.Response(200, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(alerts.httpx, "post", post)
+    targets = [alerts.Target("teams", url="https://teams.test/x"), alerts.Target("slack", url="https://slack.test/x")]
+    result = alerts.deliver(targets, alerts.Alert("failed", "t", "https://x"))
+    assert result == {"teams": "Could not reach the webhook (ConnectTimeout)", "slack": None}
+    assert sent == ["https://slack.test/x"]
