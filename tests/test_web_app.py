@@ -496,3 +496,12 @@ def test_version_demo_flags_must_match_odoo_style(s, user_client):
     assert (v.demo_flag_on, v.demo_flag_off) == ("--with-demo", "")
     s.delete(v)
     s.commit()
+
+
+def test_every_page_has_loading_feedback(s, user_client):
+    for c, path in ((client(), "/login"), (user_client, "/"), (user_client, "/admin/system")):
+        html = c.get(path).text
+        assert '<div id="loading-bar"' in html and '<script src="/static/loading.js" defer>' in html, path
+    js = user_client.get("/static/loading.js")
+    assert js.status_code == 200 and "htmx:beforeRequest" in js.text
+    assert "#loading-bar" in user_client.get("/static/theme.css").text

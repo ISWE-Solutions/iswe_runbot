@@ -107,3 +107,36 @@ body {
   #main .page { padding: 1.1rem; }
   #main .tabs-bar { padding: 0 1.1rem; }
 }
+
+/* Loading feedback (static/loading.js): top bar while a page or action is slow, spinner on
+   the button that started it. */
+#loading-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  height: 3px; overflow: hidden; pointer-events: none;
+  opacity: 0; transition: opacity .15s ease;
+}
+#loading-bar::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -45%; width: 45%;
+  background: linear-gradient(90deg, var(--iswe-red), var(--iswe-yellow), var(--iswe-green), var(--iswe-cyan));
+  animation: loading-slide 1.1s ease-in-out infinite;
+}
+html.is-busy #loading-bar { opacity: 1; }
+html.is-busy body { cursor: progress; }
+@keyframes loading-slide { from { left: -45%; } to { left: 100%; } }
+
+.is-loading { cursor: progress !important; opacity: .8; }
+.is-loading::before {
+  content: ""; display: inline-block; flex-shrink: 0;
+  width: .95em; height: .95em; margin-right: .45em; vertical-align: -.15em;
+  border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+  animation: loading-spin .7s linear infinite;
+}
+/* icon buttons swap their icon for the spinner instead of growing */
+.is-loading > svg:first-child, .is-loading > i.bi:first-child { display: none; }
+.is-loading:has(> svg:only-child)::before, .is-loading:has(> i.bi:only-child)::before { margin-right: 0; }
+@keyframes loading-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  #loading-bar::before { animation-duration: 3s; }
+  .is-loading::before { animation-duration: 1.6s; }
+}

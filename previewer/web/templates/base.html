@@ -12,8 +12,10 @@
   <link rel="stylesheet" href="/static/app.css">
   <link rel="stylesheet" href="/static/theme.css">
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="/static/loading.js" defer></script>
 </head>
 <body class="antialiased"{% if user %} hx-headers='{"X-CSRF-Token": "{{ csrf_token(request) }}"}'{% endif %}>
+<div id="loading-bar" aria-hidden="true"></div>
 {% set path = request.url.path %}
 {% macro nav_link(href, icon, label, active) -%}
   <li><a class="nav-link{% if active %} active{% endif %}" href="{{ href }}"><i class="bi {{ icon }}"></i> {{ label }}</a></li>

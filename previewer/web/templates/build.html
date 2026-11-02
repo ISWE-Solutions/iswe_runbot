@@ -10,7 +10,7 @@
   <h1 class="text-2xl font-semibold">Build #{{ build.id }}</h1>
   <span id="build-status" class="inline-flex">{{ badge(build.status) }}</span>
   <span class="text-sm text-gray-600"><code>{{ build.short_sha }}</code> · Odoo {{ build.odoo_version }}{% if build.db_name %} · db <code>{{ build.db_name }}</code>{% endif %}</span>
-  <a href="/builds/{{ build.id }}/log/download" class="ml-auto rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Download log</a>
+  <a href="/builds/{{ build.id }}/log/download" download class="ml-auto rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">Download log</a>
   {% if build.status != 'building' %}
   <form method="post" action="/builds/{{ build.id }}/delete"
         onsubmit="return confirm('{% if build.status in ('running', 'sleeping', 'stopped') %}Delete build #{{ build.id }}? This stops the branch preview.{% else %}Delete build #{{ build.id }} and its log?{% endif %}')">{{ csrf() }}
